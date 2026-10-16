@@ -1,0 +1,23 @@
+#!/bin/sh
+# Se ejecuta (con "source") antes de procesar las plantillas de nginx.
+# Calcula las variables que necesita docker/nginx.conf.template.
+
+: "${APP_ENV:=pro}"
+: "${WEATHER_API_URL:=https://api.open-meteo.com/v1/forecast}"
+
+# Origen de la API de meteo para la Content-Security-Policy (https://host[:puerto]).
+WEATHER_ORIGIN=$(printf '%s' "$WEATHER_API_URL" | sed -E 's#^(https?://[^/?#]+).*#\1#')
+export CSP_CONNECT_SRC="'self' ${WEATHER_ORIGIN}${CSP_EXTRA_CONNECT:+ $CSP_EXTRA_CONNECT}"
+
+# Indexación: por defecto solo en producción.
+if [ -z "${ROBOTS_INDEX:-}" ]; then
+  if [ "$APP_ENV" = "pro" ]; then ROBOTS_INDEX=true; else ROBOTS_INDEX=false; fi
+fi
+export ROBOTS_INDEX
+if [ "$ROBOTS_INDEX" = "true" ]; then
+  export ROBOTS_HEADER="all"
+else
+  export ROBOTS_HEADER="noindex, nofollow"
+fi
+
+export APP_ENV WEATHER_API_URL

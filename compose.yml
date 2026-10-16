@@ -1,0 +1,53 @@
+# Producción (gpx.sogra.es) y preproducción (pre.gpx.sogra.es) en la misma VM.
+#
+# Por defecto usa las imágenes que publica GitHub Actions en GHCR:
+#   :latest  ← rama main     (producción)
+#   :pre     ← rama develop  (preproducción)
+#
+#   docker compose pull && docker compose up -d          # los dos entornos
+#   docker compose pull web-pre && docker compose up -d web-pre   # solo pre
+#
+# Puertos e imágenes: .env  ·  Configuración de la app: .env.pro y .env.pre
+# Para compilar en la propia VM en lugar de descargar la imagen, ver compose.build.yml.
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "1m"
+      max-file: "3"
+  healthcheck:
+    test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 10s
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  web:
+    <<: *common
+    image: ${PRO_IMAGE:-ghcr.io/ikersolozabal/gpx-weather-ride:latest}
+    container_name: gpx-weather-ride
+    env_file:
+      - path: .env.pro
+        required: false
+    environment:
+      APP_ENV: pro
+    # Solo escucha en la propia VM; el proxy inverso (Caddy, nginx…) publica HTTPS.
+    ports:
+      - "${PRO_BIND:-127.0.0.1}:${PRO_PORT:-8080}:80"
+
+  web-pre:
+    <<: *common
+    image: ${PRE_IMAGE:-ghcr.io/ikersolozabal/gpx-weather-ride:pre}
+    container_name: gpx-weather-ride-pre
+    env_file:
+      - path: .env.pre
+        required: false
+    environment:
+      APP_ENV: pre
+    ports:
+      - "${PRE_BIND:-127.0.0.1}:${PRE_PORT:-8081}:80"
