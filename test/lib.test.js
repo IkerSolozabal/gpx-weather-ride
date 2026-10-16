@@ -189,3 +189,16 @@ test('computePlan: ida y vuelta reparte contra y a favor y sigue la temperatura 
   near(plan.markers[0].weather.temp, 8, 0.01);
   near(plan.markers[plan.markers.length - 1].weather.temp, 9, 0.05);
 });
+
+// --- Configuración ------------------------------------------------------------
+
+test('loadConfig convierte números, ignora vacíos y valores no válidos', async () => {
+  const { loadConfig, DEFAULTS } = await import('../web/js/config.js');
+  const cfg = loadConfig({ bikeSpeedKmh: '27', sampleKm: '', defaultSport: 'swim', appEnv: 'pre', unknown: 'x', maxSamples: '-3' });
+  assert.equal(cfg.bikeSpeedKmh, 27);
+  assert.equal(cfg.sampleKm, DEFAULTS.sampleKm);
+  assert.equal(cfg.defaultSport, 'bike');
+  assert.equal(cfg.appEnv, 'pre');
+  assert.equal(cfg.maxSamples, DEFAULTS.maxSamples);
+  assert.equal('unknown' in cfg, false);
+});

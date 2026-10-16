@@ -103,6 +103,7 @@ function refreshTexts() {
     meteo: '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>',
     map: cfg.tileAttribution,
   });
+  if (cfg.appVersion) $('credits').insertAdjacentHTML('beforeend', ` · <span class="version">${f.escapeHtml(cfg.appVersion)}</span>`);
   els.submitLabel.textContent = state.plan ? t('update') : t('submit');
   if (state.track) showRouteInfo();
   updateEstimate();

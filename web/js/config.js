@@ -7,6 +7,7 @@
 export const DEFAULTS = Object.freeze({
   appEnv: 'pro', // pro | pre | dev
   appName: 'GPX Weather Ride',
+  appVersion: '',
   defaultLang: 'es',
 
   weatherApiUrl: 'https://api.open-meteo.com/v1/forecast',
