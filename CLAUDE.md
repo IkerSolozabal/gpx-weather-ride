@@ -1,0 +1,9 @@
+# Instrucciones para agentes
+
+- Web estática sin paso de compilación: módulos ES nativos en `web/`. No añadir bundlers ni frameworks sin consultarlo.
+- La lógica va en `web/js/lib/` como funciones puras, sin DOM ni Leaflet, con tests en `test/` (`npm test`, `node --test`, sin dependencias).
+- La interfaz (`web/js/ui/`, `web/js/app.js`) puede usar el DOM y `window.L` (Leaflet global).
+- Todo texto visible pasa por `web/js/i18n.js`, en español y en inglés.
+- Cualquier valor que pueda cambiar entre entornos es configuración: añadir la clave en `web/js/config.js` (`DEFAULTS`), la variable en `docker/entrypoint/40-app-config.sh` y documentarla en `.env.pro.example`, `.env.pre.example` y el README.
+- Ramas: `develop` → preproducción (`pre.gpx.sogra.es`), `main` → producción (`gpx.sogra.es`). Los cambios entran por PR a `develop`.
+- Commits en español, con prefijo convencional (`feat:`, `fix:`, `chore:`, `docs:`, `ci:`).
