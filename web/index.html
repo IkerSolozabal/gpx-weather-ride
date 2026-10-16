@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPX Weather Ride</title>
+  <meta name="description" content="Carga una ruta GPX y mira el viento, la temperatura y la hora de paso en cada tramo.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="config.js"></script>
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="js/leaflet-fallback.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div class="pre-banner" id="pre-banner" hidden data-i18n="preBanner"></div>
+
+  <div class="layout">
+    <aside class="panel">
+      <header class="brand">
+        <div class="brand-row">
+          <h1 class="brand-name" id="app-name">GPX Weather Ride</h1>
+          <label class="lang">
+            <span class="visually-hidden" data-i18n="language"></span>
+            <select id="lang"></select>
+          </label>
+        </div>
+        <p class="tagline" data-i18n="tagline"></p>
+      </header>
+
+      <section class="block" id="route-block" aria-labelledby="h-route">
+        <h2 class="block-title" id="h-route" data-i18n="stepRoute"></h2>
+
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept=".gpx,application/gpx+xml" class="visually-hidden">
+          <span class="drop-title" data-i18n="dropTitle"></span>
+          <span class="drop-sub"><span data-i18n="dropOr"></span> <span class="link" data-i18n="dropPick"></span></span>
+          <span class="drop-hint" data-i18n="dropHint"></span>
+        </label>
+
+        <div class="route" id="route" hidden>
+          <div class="route-head">
+            <p class="route-name" id="route-name"></p>
+            <button type="button" class="link-btn" id="change-route" data-i18n="changeRoute"></button>
+          </div>
+          <dl class="figures">
+            <div><dt data-i18n="distance"></dt><dd id="route-distance"></dd></div>
+            <div><dt data-i18n="ascent"></dt><dd id="route-ascent"></dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <form class="block" id="plan-form" novalidate aria-labelledby="h-plan">
+        <h2 class="block-title" id="h-plan" data-i18n="stepPlan"></h2>
+
+        <fieldset class="sport">
+          <legend class="visually-hidden" data-i18n="sport"></legend>
+          <label><input type="radio" name="sport" value="bike"><span data-i18n="bike"></span></label>
+          <label><input type="radio" name="sport" value="run"><span data-i18n="run"></span></label>
+        </fieldset>
+
+        <div class="fields">
+          <label class="field">
+            <span class="field-label" data-i18n="start"></span>
+            <input type="datetime-local" id="start" required step="300">
+          </label>
+
+          <label class="field" id="speed-field">
+            <span class="field-label" data-i18n="speed"></span>
+            <span class="input-unit">
+              <input type="number" id="speed" inputmode="decimal" min="1" max="80" step="0.5">
+              <span>km/h</span>
+            </span>
+          </label>
+
+          <label class="field" id="pace-field" hidden>
+            <span class="field-label" data-i18n="pace"></span>
+            <span class="input-unit">
+              <input type="text" id="pace" inputmode="numeric" autocomplete="off" pattern="\d{1,2}:[0-5]\d" data-i18n-placeholder="paceHint">
+              <span>min/km</span>
+            </span>
+          </label>
+        </div>
+
+        <p class="estimate" id="estimate" aria-live="polite"></p>
+
+        <button type="submit" class="primary" id="submit" disabled>
+          <span class="spinner" aria-hidden="true"></span>
+          <span id="submit-label" data-i18n="submit"></span>
+        </button>
+        <p class="message" id="message" role="alert" hidden></p>
+      </form>
+
+      <section class="block results" id="results" hidden aria-labelledby="h-summary">
+        <h2 class="visually-hidden" id="h-summary" data-i18n="windShare"></h2>
+        <dl class="figures figures-4" id="summary"></dl>
+
+        <div class="share">
+          <p class="share-title" data-i18n="windShare"></p>
+          <div class="share-bar" id="share-bar"></div>
+          <ul class="legend" id="legend"></ul>
+        </div>
+
+        <h3 class="block-title" data-i18n="table"></h3>
+        <div class="table-wrap">
+          <table class="km-table">
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="colKm"></th>
+                <th scope="col" data-i18n="colTime"></th>
+                <th scope="col" data-i18n="colTemp"></th>
+                <th scope="col" data-i18n="colWind"></th>
+                <th scope="col" data-i18n="colRain"></th>
+              </tr>
+            </thead>
+            <tbody id="km-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="credits">
+        <p id="credits"></p>
+        <p data-i18n="footerNote"></p>
+      </footer>
+    </aside>
+
+    <main class="stage">
+      <div class="map" id="map" role="region" aria-label="Mapa"></div>
+      <p class="map-empty" id="map-empty" data-i18n="emptyMap"></p>
+      <section class="profile" id="profile" hidden aria-labelledby="h-profile">
+        <h2 class="visually-hidden" id="h-profile" data-i18n="profile"></h2>
+        <div class="profile-canvas" id="profile-canvas"></div>
+        <p class="profile-note" id="profile-note" hidden data-i18n="profileNoEle"></p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
