@@ -1,0 +1,9 @@
+node_modules/
+web/vendor/
+.env
+.env.*
+!.env.*.example
+*.log
+.DS_Store
+.vscode/
+.idea/
