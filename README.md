@@ -36,6 +36,23 @@ Las dos comparten idioma (se guarda en el navegador), estilos base y configuraci
 
 Los umbrales se cambian con variables de entorno.
 
+## Más opciones
+
+La app tiene un desplegable **Más opciones**, cerrado por defecto, con funciones para quien las quiera sin complicar el uso normal.
+
+### Mejor hora de salida
+
+Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una franja del día elegido y puntúa cada una (menos es mejor):
+
+| Factor | Cómo se mide | Vale 1 cuando… |
+| --- | --- | --- |
+| Viento | Componente media del viento en contra a lo largo de la ruta (a favor resta) | 15 km/h de media en contra |
+| Lluvia | Probabilidad media de lluvia | 40 % |
+| Temperatura | Grados de sensación térmica fuera de `TEMP_COMFORT_MIN`–`TEMP_COMFORT_MAX` | 8 °C fuera del rango |
+| Noche | Parte de la ruta antes del amanecer o después del anochecer | La mitad de la ruta |
+
+El selector «Qué evitar sobre todo» multiplica por 3 el peso del factor elegido (viento, lluvia o temperatura); «Un poco de todo» los pesa igual. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
+
 ## Estructura
 
 ```
