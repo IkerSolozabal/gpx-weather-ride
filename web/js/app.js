@@ -2,9 +2,10 @@ import { loadConfig } from './config.js';
 import { applyI18n, getLang, LANGS, setLang, t, weatherLabel } from './i18n.js';
 import { parseGpx, GpxError } from './lib/gpx.js';
 import { bearingAround, buildTrack, elevationStats, pointAt } from './lib/geo.js';
-import { formatDuration, parsePace, paceToKmh } from './lib/timing.js';
+import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
 import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
 import { rankStarts } from './lib/beststart.js';
+import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -98,10 +99,13 @@ function init() {
   const prio = store.get('bestPriority', 'balanced');
   $('best-priority').value = prio;
   $('best-priority').addEventListener('change', () => store.set('bestPriority', $('best-priority').value));
+  $('share-run').addEventListener('click', onShare);
+  window.addEventListener('hashchange', loadFromLink);
   $('change-route').addEventListener('click', () => els.file.click());
   setupDrop();
 
   refreshTexts();
+  loadFromLink();
 }
 
 function refreshTexts() {
@@ -153,11 +157,21 @@ async function loadFile(file) {
   } finally {
     els.file.value = '';
   }
+  // Una ruta nueva sustituye a la del enlace compartido.
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  showLoadedRoute();
+}
+
+/** Prepara la interfaz para la ruta de state.track (de un GPX o de un enlace). */
+function showLoadedRoute() {
   state.plan = null;
   state.cache = null;
   state.best = null;
   $('best-results').hidden = true;
   $('best-run').disabled = false;
+  $('share-run').disabled = false;
+  $('share-status').hidden = true;
+  $('share-link').hidden = true;
   els.results.hidden = true;
   els.profile.hidden = true;
   profile.clear();
@@ -285,9 +299,11 @@ function setBusy(on) {
   els.submitLabel.textContent = on ? t('loading') : state.plan ? t('update') : t('submit');
 }
 
-function showMessage(text, warning = false) {
+/** kind: true o 'warning' (aviso amarillo), 'info' (verde) o nada (error). */
+function showMessage(text, kind = false) {
   els.message.textContent = text;
-  els.message.classList.toggle('is-warning', warning);
+  els.message.classList.toggle('is-warning', kind === true || kind === 'warning');
+  els.message.classList.toggle('is-info', kind === 'info');
   els.message.hidden = false;
 }
 function hideMessage() {
@@ -464,6 +480,77 @@ async function useStart(startMs) {
   updateEstimate();
   state.scrollToMap = window.matchMedia('(max-width: 860px)').matches;
   els.form.requestSubmit();
+}
+
+// --- Compartir por enlace ---
+async function onShare() {
+  if (!state.track) return;
+  hideMessage();
+  const form = readForm();
+  const status = $('share-status');
+  const linkInput = $('share-link');
+  linkInput.hidden = true;
+  let url;
+  try {
+    const { hash } = await encodeShare(state.track, {
+      name: state.routeName || '',
+      startMs: form.error ? undefined : form.startMs,
+      sport: els.form.sport.value,
+      speedKmh: form.error ? undefined : form.speedKmh,
+      hideMeters: $('share-hide').checked ? 500 : 0,
+    });
+    url = `${location.origin}${location.pathname}#${hash}`;
+  } catch (err) {
+    return showMessage(err instanceof ShareError ? t(`err_share_${err.code}`) : t('err_generic', { detail: err.message }));
+  }
+  const title = state.routeName || 'GPX Weather Ride';
+  const touch = window.matchMedia('(pointer: coarse)').matches;
+  try {
+    if (touch && navigator.share) {
+      await navigator.share({ title, url });
+      status.textContent = t('shareShared');
+    } else {
+      await navigator.clipboard.writeText(url);
+      status.textContent = t('shareCopied');
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') return; // el usuario cerró el menú de compartir
+    status.textContent = t('shareManual');
+    linkInput.value = url;
+    linkInput.hidden = false;
+    linkInput.select();
+  }
+  status.hidden = false;
+}
+
+/** Si la URL trae una ruta compartida (#r=…), la carga y calcula su meteo. */
+async function loadFromLink() {
+  let shared;
+  try {
+    shared = await decodeShare(location.hash);
+  } catch (err) {
+    return showMessage(t(`err_share_${err.code || 'bad_link'}`));
+  }
+  if (!shared) return;
+
+  state.track = buildTrack(shared.points);
+  state.routeName = shared.name || t('unnamedRoute');
+  if (shared.sport) {
+    els.form.sport.value = shared.sport;
+    toggleSport(shared.sport);
+  }
+  if (shared.speedKmh) {
+    if (els.form.sport.value === 'run') els.pace.value = formatPace(kmhToPace(shared.speedKmh));
+    else els.speed.value = Math.round(shared.speedKmh * 10) / 10;
+  }
+  const past = !shared.startMs || shared.startMs < Date.now();
+  els.start.value = f.toLocalInput(past ? Math.ceil(Date.now() / 3600_000) * 3600_000 : shared.startMs);
+  showLoadedRoute();
+  els.form.requestSubmit();
+  // El mensaje se muestra después de que onSubmit limpie los anteriores.
+  setTimeout(() => {
+    if (els.message.hidden) showMessage(t(past && shared.startMs ? 'shareLoadedPast' : 'shareLoaded', { name: state.routeName }), 'info');
+  }, 0);
 }
 
 function hoverInfo(d) {
