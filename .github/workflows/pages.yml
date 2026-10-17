@@ -38,6 +38,7 @@ jobs:
           APP_ENV: pro
           APP_VERSION: ${{ github.ref_name }}@${{ github.sha }}
           PAGES_CNAME: ${{ vars.PAGES_CNAME }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://gpx.sogra.es' }}
           ROBOTS_INDEX: ${{ vars.ROBOTS_INDEX }}
           CSP_EXTRA_CONNECT: ${{ vars.CSP_EXTRA_CONNECT }}
           APP_NAME: ${{ vars.APP_NAME }}

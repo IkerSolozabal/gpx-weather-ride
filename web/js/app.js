@@ -60,7 +60,7 @@ const profile = createProfile($('profile-canvas'), { onHover: hoverInfo, onPick:
 // --- Inicio ---
 function init() {
   setLang(store.get('lang', cfg.defaultLang));
-  document.title = cfg.appEnv === 'pre' ? `${cfg.appName} (pre)` : cfg.appName;
+  if (cfg.appEnv !== 'pro') document.title = `(${cfg.appEnv}) ${document.title}`;
   $('app-name').textContent = cfg.appName;
   $('pre-banner').hidden = cfg.appEnv !== 'pre';
 
