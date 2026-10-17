@@ -17,6 +17,9 @@ WORKDIR /app
 COPY package.json ./
 COPY web ./web
 COPY test ./test
+# Los tests también comprueban el generador estático y el script de arranque del contenedor.
+COPY scripts ./scripts
+COPY docker/entrypoint ./docker/entrypoint
 RUN npm test && touch /app/.tests-ok
 
 # --- Etapa 3: nginx sirviendo la web estática ---
