@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Viento y meteo por tramos para tu ruta GPX en bici o corriendo | GPX Weather Ride</title>
-  <meta name="description" content="Sube tu ruta GPX, elige hora de salida y velocidad, y mira el viento en contra o a favor, la temperatura, la lluvia y la hora de paso en cada kilómetro. Gratis y sin registro.">
+  <title>App: viento y meteo de tu ruta GPX | GPX Weather Ride</title>
+  <meta name="description" content="Carga tu ruta GPX, elige hora de salida y velocidad, y mira en el mapa el viento, la temperatura, la lluvia y la hora de paso en cada kilómetro.">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#1d2b36">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -19,19 +19,6 @@
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <!-- seo:urls (el build de producción pone aquí canonical, og:url y las URLs absolutas) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "GPX Weather Ride",
-    "applicationCategory": "SportsApplication",
-    "operatingSystem": "Web",
-    "inLanguage": ["es", "en"],
-    "description": "Pronóstico de viento, temperatura y lluvia a lo largo de una ruta GPX de ciclismo o carrera, con la hora de paso por cada kilómetro.",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
-    "isAccessibleForFree": true
-  }
-  </script>
   <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="../css/base.css">
   <link rel="stylesheet" href="../css/app.css">
@@ -147,31 +134,7 @@
         </div>
       </section>
 
-      <section class="about" aria-labelledby="h-about">
-        <h2 class="block-title" id="h-about" data-i18n="aboutTitle">Qué hace esta web</h2>
-        <p data-i18n="aboutIntro">Calcula la meteo de tu ruta tramo a tramo, a la hora en que vas a pasar por cada sitio. Sirve para salidas en bici de carretera, gravel o BTT y para carreras y tiradas largas.</p>
-        <ul class="about-list">
-          <li data-i18n="aboutWind">Viento en contra, a favor o lateral en cada tramo, según el rumbo de la ruta y la dirección del viento.</li>
-          <li data-i18n="aboutTime">Hora estimada de paso por cada punto kilométrico, a partir de tu hora de salida y tu velocidad media o ritmo.</li>
-          <li data-i18n="aboutTemp">Temperatura, sensación térmica, rachas y probabilidad de lluvia en cada punto, con pronóstico de hasta 16 días.</li>
-        </ul>
-        <details>
-          <summary data-i18n="faqFreeQ">¿Es gratis? ¿Hay que registrarse?</summary>
-          <p data-i18n="faqFreeA">Sí, es gratis y no necesitas cuenta. Solo tienes que subir el archivo GPX.</p>
-        </details>
-        <details>
-          <summary data-i18n="faqPrivacyQ">¿Se guarda mi ruta en algún sitio?</summary>
-          <p data-i18n="faqPrivacyA">No. El GPX se lee en tu navegador y nunca se sube a ningún servidor. Para pedir el pronóstico solo se envían las coordenadas de algunos puntos a Open-Meteo.</p>
-        </details>
-        <details>
-          <summary data-i18n="faqGpxQ">¿De dónde saco el archivo GPX?</summary>
-          <p data-i18n="faqGpxA">Strava, Komoot, Garmin Connect, Wikiloc, Ride with GPS y la mayoría de aplicaciones permiten exportar o descargar la ruta en formato .gpx.</p>
-        </details>
-        <details>
-          <summary data-i18n="faqAccuracyQ">¿Qué precisión tiene?</summary>
-          <p data-i18n="faqAccuracyA">La hora de paso supone una velocidad constante, así que en puertos largos puede desviarse. El pronóstico es fiable para los próximos 2 o 3 días; más allá, tómalo como orientación.</p>
-        </details>
-      </section>
+      <p class="about-link"><a href="../#como-funciona" data-i18n="aboutLink">Qué es y cómo funciona</a></p>
 
       <footer class="credits">
         <p id="credits"></p>

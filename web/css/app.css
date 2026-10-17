@@ -167,13 +167,9 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .km-table .icon { margin-right: 4px; }
 .arrow { width: 18px; height: 18px; flex: none; color: var(--c); }
 
-/* Qué hace esta web (texto que también lee Google) */
-.about { display: flex; flex-direction: column; gap: 10px; color: var(--ink); }
-.about p, .about li { color: var(--muted); }
-.about-list { padding-left: 18px; display: grid; gap: 4px; }
-.about details { border-top: 1px solid var(--line); padding: 8px 0 0; }
-.about summary { cursor: pointer; font-weight: 500; color: var(--ink); }
-.about details p { margin-top: 6px; }
+.about-link { font-size: 14px; }
+.about-link a { color: var(--muted); text-underline-offset: 3px; }
+.about-link a:hover { color: var(--ink); }
 .noscript { padding: 16px; text-align: center; }
 
 .credits { margin-top: auto; color: var(--muted); font-size: 12.5px; display: grid; gap: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
@@ -258,7 +254,7 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   #plan-form { order: 3; }
   .stage { order: 4; height: 64vh; min-height: 380px; margin-bottom: 24px; border-block: 1px solid var(--line); }
   .results { order: 5; }
-  .about { order: 6; }
+  .about-link { order: 6; }
   .credits { order: 7; margin: 0; padding: 12px 16px 24px; }
   .table-wrap { margin: 0 -8px; }
   .km-table th { top: 0; }
