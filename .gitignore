@@ -9,3 +9,6 @@ web/vendor/
 .vscode/
 .idea/
 dist/
+
+# Capturas de pruebas en la raíz
+/*.png

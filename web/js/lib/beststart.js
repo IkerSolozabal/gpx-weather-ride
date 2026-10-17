@@ -104,13 +104,13 @@ export function evaluateStart(points, series, startMs, speedKmh, opts = {}) {
 
 /**
  * Penalización total (más baja = mejor). Escalas pensadas para que cada factor
- * valga ~1 en un caso "claramente malo": 15 km/h de media en contra, 50 % de
- * probabilidad de lluvia, 5 °C fuera del rango cómodo o la mitad de la ruta de noche.
+ * valga ~1 en un caso "claramente malo": 15 km/h de media en contra, 40 % de
+ * probabilidad de lluvia, 8 °C fuera del rango cómodo o la mitad de la ruta de noche.
  */
 export function scoreMetrics(m, weights = PRIORITIES.balanced) {
   const wind = m.headKmh / 15; // negativo si de media sopla a favor: bonifica
-  const rain = m.rainAvg / 50;
-  const temp = m.tempPenalty / 5;
+  const rain = m.rainAvg / 40;
+  const temp = m.tempPenalty / 8;
   const dark = m.darkShare * 2;
   return weights.wind * wind + weights.rain * rain + weights.temp * temp + weights.dark * dark;
 }
