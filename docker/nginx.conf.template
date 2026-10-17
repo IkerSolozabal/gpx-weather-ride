@@ -1,0 +1,47 @@
+# Plantilla: la imagen oficial de nginx sustituye ${VARIABLES} al arrancar.
+# CSP_CONNECT_SRC y ROBOTS_HEADER los calcula docker/entrypoint/15-app-env.envsh.
+server {
+    listen 80 default_server;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+    charset utf-8;
+
+    server_tokens off;
+    # Sin registros de acceso: los GPX no salen del navegador y no guardamos IPs. Solo errores.
+    access_log off;
+    error_log /dev/stderr error;
+    absolute_redirect off;
+
+    gzip on;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_vary on;
+    gzip_types text/plain text/css application/javascript text/javascript application/json image/svg+xml;
+
+    # Cabeceras comunes. Ninguna location usa add_header, así que todas las heredan.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src ${CSP_CONNECT_SRC}; frame-ancestors 'self'; base-uri 'self'; form-action 'self'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header X-Robots-Tag "${ROBOTS_HEADER}" always;
+
+    location = /healthz {
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Leaflet y fuentes: cambian solo al actualizar la imagen.
+    location /vendor/ {
+        expires 30d;
+        try_files $uri =404;
+    }
+
+    # HTML, JS, CSS y config.js: el navegador siempre revalida (ETag), así cada despliegue se ve al momento.
+    location / {
+        expires -1;
+        try_files $uri $uri/ /index.html;
+    }
+}

@@ -1,0 +1,22 @@
+# Compilar la imagen en la propia VM en lugar de descargarla de GHCR.
+#
+#   docker compose -f compose.yml -f compose.build.yml up -d --build web
+#
+# Ojo: compila el código de la rama que tengas en esta carpeta. Para tener pre
+# (develop) y pro (main) a la vez con este método, usa dos clones, uno por rama,
+# y levanta en cada uno solo su servicio (web o web-pre). Ver README.
+
+services:
+  web:
+    image: gpx-weather-ride:local
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-local}
+
+  web-pre:
+    image: gpx-weather-ride-pre:local
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-local}

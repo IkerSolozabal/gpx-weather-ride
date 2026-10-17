@@ -1,0 +1,21 @@
+# Proxy inverso con HTTPS automático (Let's Encrypt) para la VM.
+# Copia este archivo como /etc/caddy/Caddyfile (Caddy instalado en la VM) y recarga:
+#   sudo systemctl reload caddy
+# Requisitos: los registros DNS A de gpx.sogra.es y pre.gpx.sogra.es apuntan a la IP pública
+# de la VM y los puertos 80 y 443 llegan a ella.
+
+gpx.sogra.es {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8080
+}
+
+pre.gpx.sogra.es {
+	encode zstd gzip
+	# Opcional: restringir pre a tu IP o pedir contraseña.
+	# @fuera not remote_ip 203.0.113.10
+	# respond @fuera 403
+	# basic_auth {
+	# 	iker <hash generado con: caddy hash-password>
+	# }
+	reverse_proxy 127.0.0.1:8081
+}

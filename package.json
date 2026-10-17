@@ -1,0 +1,21 @@
+{
+  "name": "gpx-weather-ride",
+  "version": "0.1.0",
+  "description": "Carga una ruta GPX y mira el viento, la temperatura y la hora de paso por cada tramo.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "build": "node scripts/build-static.mjs",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "leaflet": "1.9.4",
+    "@fontsource/barlow": "^5.0.0",
+    "@fontsource/barlow-condensed": "^5.0.0"
+  }
+}
