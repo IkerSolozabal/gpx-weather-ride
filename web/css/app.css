@@ -268,5 +268,3 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* Página 404 */
-.not-found { max-width: 32rem; margin: 15vh auto; padding: 0 16px; display: grid; gap: 12px; }
