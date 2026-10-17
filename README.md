@@ -36,6 +36,23 @@ Las dos comparten idioma (se guarda en el navegador), estilos base y configuraci
 
 Los umbrales se cambian con variables de entorno.
 
+## Más opciones
+
+La app tiene un desplegable **Más opciones**, cerrado por defecto, con funciones para quien las quiera sin complicar el uso normal.
+
+### Mejor hora de salida
+
+Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una franja del día elegido y puntúa cada una (menos es mejor):
+
+| Factor | Cómo se mide | Vale 1 cuando… |
+| --- | --- | --- |
+| Viento | Componente media del viento en contra a lo largo de la ruta (a favor resta) | 15 km/h de media en contra |
+| Lluvia | Probabilidad media de lluvia | 40 % |
+| Temperatura | Grados de sensación térmica fuera de `TEMP_COMFORT_MIN`–`TEMP_COMFORT_MAX` | 8 °C fuera del rango |
+| Noche | Parte de la ruta antes del amanecer o después del anochecer | La mitad de la ruta |
+
+El selector «Qué evitar sobre todo» multiplica por 3 el peso del factor elegido (viento, lluvia o temperatura); «Un poco de todo» los pesa igual. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
+
 ## Estructura
 
 ```
@@ -263,6 +280,7 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 | Mapa | `MAP_TILE_URL`, `MAP_TILE_ATTRIBUTION`, `MAP_MAX_ZOOM` |
 | Cálculo | `ROUTE_SAMPLE_KM`, `ROUTE_MAX_SAMPLES`, `ROUTE_SEGMENT_M`, `GPX_MAX_FILE_MB` |
 | Formulario | `DEFAULT_SPORT`, `BIKE_SPEED_KMH`, `RUN_PACE`, `BIKE_MARKER_KM`, `RUN_MARKER_KM` |
+| Mejor hora de salida | `BEST_START_STEP_MIN`, `TEMP_COMFORT_MIN`, `TEMP_COMFORT_MAX` |
 | Viento | `WIND_CALM_KMH`, `WIND_HEAD_ANGLE`, `WIND_TAIL_ANGLE` |
 | Seguridad | `CSP_EXTRA_CONNECT` |
 | Solo GitHub Pages | `SITE_URL` (por defecto `https://gpx.sogra.es`, para canonical y sitemap), `PAGES_CNAME` (opcional, escribe el archivo `CNAME`) |

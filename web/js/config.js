@@ -29,6 +29,10 @@ export const DEFAULTS = Object.freeze({
   bikeMarkerKm: 5,
   runMarkerKm: 1,
 
+  bestStartStepMin: 30,
+  comfortMinC: 10,
+  comfortMaxC: 25,
+
   calmKmh: 5,
   headAngle: 45,
   tailAngle: 135,

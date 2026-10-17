@@ -105,6 +105,39 @@
           <span id="submit-label" data-i18n="submit"></span>
         </button>
         <p class="message" id="message" role="alert" hidden></p>
+
+        <details class="advanced" id="advanced">
+          <summary data-i18n="advanced">Más opciones</summary>
+
+          <section class="adv-block" aria-labelledby="h-best">
+            <h3 class="adv-title" id="h-best" data-i18n="bestTitle">Mejor hora de salida</h3>
+            <p class="adv-hint" data-i18n="bestHint">Compara varias salidas el mismo día y te sugiere la mejor.</p>
+            <div class="fields">
+              <label class="field">
+                <span class="field-label" data-i18n="bestFrom">Desde</span>
+                <input type="time" id="best-from" value="07:00" step="900">
+              </label>
+              <label class="field">
+                <span class="field-label" data-i18n="bestTo">Hasta</span>
+                <input type="time" id="best-to" value="13:00" step="900">
+              </label>
+            </div>
+            <label class="field">
+              <span class="field-label" data-i18n="bestPriority">Qué evitar sobre todo</span>
+              <select id="best-priority">
+                <option value="balanced" data-i18n="prioBalanced">Un poco de todo</option>
+                <option value="wind" data-i18n="prioWind">Viento en contra</option>
+                <option value="rain" data-i18n="prioRain">Lluvia</option>
+                <option value="temp" data-i18n="prioTemp">Frío o calor</option>
+              </select>
+            </label>
+            <button type="button" class="secondary" id="best-run" disabled>
+              <span class="spinner" aria-hidden="true"></span>
+              <span data-i18n="bestRun">Comparar horas</span>
+            </button>
+            <div class="best" id="best-results" aria-live="polite" hidden></div>
+          </section>
+        </details>
       </form>
 
       <section class="block results" id="results" hidden aria-labelledby="h-summary">

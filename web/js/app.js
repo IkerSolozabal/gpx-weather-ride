@@ -3,7 +3,8 @@ import { applyI18n, getLang, LANGS, setLang, t, weatherLabel } from './i18n.js';
 import { parseGpx, GpxError } from './lib/gpx.js';
 import { bearingAround, buildTrack, elevationStats, pointAt } from './lib/geo.js';
 import { formatDuration, parsePace, paceToKmh } from './lib/timing.js';
-import { computePlan, nearestSample } from './lib/plan.js';
+import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
+import { rankStarts } from './lib/beststart.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -34,7 +35,9 @@ const store = {
   },
 };
 
-const state = { track: null, routeName: null, plan: null, busy: false };
+// cache: series de Open-Meteo de la ruta actual para una franja de tiempo, reutilizables
+// al cambiar la hora de salida o al comparar horas.
+const state = { track: null, routeName: null, plan: null, busy: false, cache: null, best: null };
 
 const els = {
   form: $('plan-form'),
@@ -91,6 +94,10 @@ function init() {
   els.form.addEventListener('input', onFormChange);
   els.form.addEventListener('submit', onSubmit);
   els.file.addEventListener('change', () => els.file.files[0] && loadFile(els.file.files[0]));
+  $('best-run').addEventListener('click', onBestRun);
+  const prio = store.get('bestPriority', 'balanced');
+  $('best-priority').value = prio;
+  $('best-priority').addEventListener('change', () => store.set('bestPriority', $('best-priority').value));
   $('change-route').addEventListener('click', () => els.file.click());
   setupDrop();
 
@@ -108,6 +115,7 @@ function refreshTexts() {
   if (state.track) showRouteInfo();
   updateEstimate();
   if (state.plan) renderPlan();
+  if (state.best) renderBest();
 }
 
 // --- Carga del GPX ---
@@ -146,6 +154,10 @@ async function loadFile(file) {
     els.file.value = '';
   }
   state.plan = null;
+  state.cache = null;
+  state.best = null;
+  $('best-results').hidden = true;
+  $('best-run').disabled = false;
   els.results.hidden = true;
   els.profile.hidden = true;
   profile.clear();
@@ -227,16 +239,7 @@ async function onSubmit(ev) {
 
   setBusy(true);
   try {
-    state.plan = await computePlan(state.track, {
-      startMs: form.startMs,
-      speedKmh: form.speedKmh,
-      sampleKm: cfg.sampleKm,
-      maxSamples: cfg.maxSamples,
-      markerKm: form.sport === 'bike' ? cfg.bikeMarkerKm : cfg.runMarkerKm,
-      segmentM: cfg.segmentM,
-      wind: windOpts,
-      weather: { baseUrl: cfg.weatherApiUrl, apiKey: cfg.weatherApiKey, models: cfg.weatherModels },
-    });
+    state.plan = await planFor(form.startMs, form.speedKmh, form.sport);
     renderPlan();
     if (state.plan.missingWeather) showMessage(t('warnMissing'), true);
   } catch (err) {
@@ -246,6 +249,33 @@ async function onSubmit(ev) {
   } finally {
     setBusy(false);
   }
+}
+
+/** Opciones de cálculo comunes al plan y a la comparación de horas. */
+function planOptions(sport) {
+  return {
+    sampleKm: cfg.sampleKm,
+    maxSamples: cfg.maxSamples,
+    markerKm: sport === 'bike' ? cfg.bikeMarkerKm : cfg.runMarkerKm,
+    segmentM: cfg.segmentM,
+    wind: windOpts,
+    weather: { baseUrl: cfg.weatherApiUrl, apiKey: cfg.weatherApiKey, models: cfg.weatherModels },
+  };
+}
+
+/** Series meteorológicas para [fromMs, toMs]; reutiliza las descargadas si cubren la franja. */
+async function getSeries(fromMs, toMs) {
+  const c = state.cache;
+  if (c && c.track === state.track && c.fromMs <= fromMs && c.toMs >= toMs) return c;
+  const data = await fetchSeries(state.track, { ...planOptions('bike'), fromMs, toMs });
+  state.cache = { ...data, track: state.track };
+  return state.cache;
+}
+
+async function planFor(startMs, speedKmh, sport) {
+  const endMs = startMs + (state.track.total / 1000 / speedKmh) * 3600_000;
+  const { samples, series } = await getSeries(startMs, endMs);
+  return assemblePlan(state.track, samples, series, { ...planOptions(sport), startMs, speedKmh });
 }
 
 function setBusy(on) {
@@ -323,10 +353,117 @@ function renderPlan() {
   const hasEle = profile.show(track, plan);
   $('profile-note').hidden = hasEle;
   els.submitLabel.textContent = t('update');
+  if (state.best) renderBest();
+  if (state.scrollToMap) {
+    state.scrollToMap = false;
+    $('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function fig(label, value, sub) {
   return `<div><dt>${label}</dt><dd>${value}${sub ? `<span class="sub">${sub}</span>` : ''}</dd></div>`;
+}
+
+// --- Mejor hora de salida ---
+function timeOnStartDay(hhmm) {
+  const base = els.start.value ? new Date(els.start.value) : new Date();
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  if (!Number.isFinite(h)) return NaN;
+  const d = new Date(base);
+  d.setHours(h, m || 0, 0, 0);
+  return d.getTime();
+}
+
+async function onBestRun() {
+  if (!state.track || state.busy) return;
+  hideMessage();
+  const form = readForm();
+  if (form.error) {
+    form.field.setAttribute('aria-invalid', 'true');
+    return showMessage(t(form.error));
+  }
+  const fromMs = timeOnStartDay($('best-from').value);
+  const toMs = timeOnStartDay($('best-to').value);
+  if (!(toMs > fromMs)) return showMessage(t('err_best_window'));
+  const durMs = (state.track.total / 1000 / form.speedKmh) * 3600_000;
+  const limit = Date.now() + cfg.forecastDays * DAY;
+  if (fromMs > limit) return showMessage(t('err_best_none', { days: cfg.forecastDays }));
+
+  const btn = $('best-run');
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  try {
+    const { samples, series } = await getSeries(fromMs, Math.min(toMs + durMs, limit));
+    const list = rankStarts({
+      track: state.track,
+      samples,
+      series,
+      speedKmh: form.speedKmh,
+      fromMs,
+      toMs,
+      stepMin: cfg.bestStartStepMin,
+      priority: $('best-priority').value,
+      wind: windOpts,
+      comfortMin: cfg.comfortMinC,
+      comfortMax: cfg.comfortMaxC,
+    });
+    state.best = { list, sport: form.sport, speedKmh: form.speedKmh };
+    renderBest();
+    if (!list.some((c) => c.best)) showMessage(t('err_best_none', { days: cfg.forecastDays }));
+  } catch (err) {
+    console.error(err);
+    if (err instanceof WeatherError) showMessage(t(`err_${err.code}`, { detail: err.detail || '', days: cfg.forecastDays }));
+    else showMessage(t('err_generic', { detail: err.message }));
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+  }
+}
+
+function renderBest() {
+  const box = $('best-results');
+  const { list } = state.best;
+  const best = list.find((c) => c.best);
+  const current = state.plan ? state.plan.startMs : null;
+  let html = '';
+  if (best) {
+    html += `<p class="best-summary">${t('bestSummary', {
+      time: `<b>${f.time(best.startMs)}</b>`,
+      head: Math.round(best.headShare * 100),
+      rain: Math.round(best.rainMax),
+      tmin: f.temp(best.tempMin),
+      tmax: f.temp(best.tempMax),
+    })}${best.darkShare > 0.02 ? ` ${t('bestDark')}` : ''}</p>`;
+    html += `<button type="button" class="primary best-use" data-start="${best.startMs}">${t('bestUse', { time: f.time(best.startMs) })}</button>`;
+  }
+  html += `<p class="adv-hint">${t('bestPick')}</p><ul class="best-list">`;
+  for (const c of list) {
+    const ok = c.score !== null;
+    const cls = ['best-row', c.best ? 'is-best' : '', current === c.startMs ? 'is-current' : ''].join(' ').trim();
+    const width = ok ? Math.max(4, Math.round(c.quality * 100)) : 0;
+    const meta = ok
+      ? `${t('bestMeta', { temp: f.temp(c.tempMin), head: Math.round(c.headShare * 100), rain: Math.round(c.rainMax) })}${c.darkShare > 0.02 ? ' · 🌙' : ''}`
+      : t('bestNoData');
+    html += `<li><button type="button" class="${cls}" data-start="${c.startMs}" ${ok ? '' : 'disabled'}>
+      <span class="best-time">${f.time(c.startMs)}</span>
+      <span class="best-bar"><span style="width:${width}%"></span></span>
+      <span class="best-meta">${meta}</span>
+    </button></li>`;
+  }
+  html += '</ul>';
+  box.innerHTML = html;
+  box.hidden = false;
+  for (const b of box.querySelectorAll('[data-start]')) {
+    b.addEventListener('click', () => useStart(Number(b.dataset.start)));
+  }
+}
+
+/** Pone la hora elegida en el formulario y calcula su ruta con la meteo ya descargada. */
+async function useStart(startMs) {
+  els.start.value = f.toLocalInput(startMs);
+  updateEstimate();
+  state.scrollToMap = window.matchMedia('(max-width: 860px)').matches;
+  els.form.requestSubmit();
 }
 
 function hoverInfo(d) {
