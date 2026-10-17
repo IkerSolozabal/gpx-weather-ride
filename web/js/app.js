@@ -100,6 +100,12 @@ function init() {
   $('best-priority').value = prio;
   $('best-priority').addEventListener('change', () => store.set('bestPriority', $('best-priority').value));
   $('share-run').addEventListener('click', onShare);
+  // Al abrir «Más opciones» su contenido suele quedar fuera de la vista del panel: lo mostramos.
+  $('advanced').addEventListener('toggle', (ev) => {
+    if (!ev.target.open) return;
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => ev.target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }));
+  });
   window.addEventListener('hashchange', loadFromLink);
   $('change-route').addEventListener('click', () => els.file.click());
   setupDrop();

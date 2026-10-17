@@ -137,16 +137,22 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 /* --- Más opciones (desplegable) --- */
 .advanced { border-top: 1px solid var(--line); padding-top: 12px; }
 .advanced > summary {
-  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 8px;
-  font-weight: 500; color: var(--muted);
+  cursor: pointer; list-style: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  font-weight: 500; color: var(--ink);
 }
 .advanced > summary::-webkit-details-marker { display: none; }
-.advanced > summary::before {
-  content: ''; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
-  transform: rotate(-45deg); transition: transform .15s; margin-right: 2px;
+.advanced > summary::marker { content: ''; }
+/* Flecha a la derecha: apunta abajo cerrada y arriba abierta */
+.advanced > summary::after {
+  content: ''; width: 8px; height: 8px; flex: none;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg); transition: transform .15s;
 }
-.advanced[open] > summary::before { transform: rotate(45deg) translate(-2px, -2px); }
-.advanced > summary:hover, .advanced[open] > summary { color: var(--ink); }
+.advanced[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.advanced > summary:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.advanced[open] > summary { border-color: var(--ink); }
 .adv-block { display: grid; gap: 12px; margin-top: 16px; }
 .adv-block + .adv-block { border-top: 1px dashed var(--line); padding-top: 16px; }
 .adv-title { font: 600 18px/1.2 var(--font-figure); }
