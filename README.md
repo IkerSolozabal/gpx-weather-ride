@@ -14,6 +14,15 @@ Es una web estática: el GPX se procesa en el navegador y nunca se sube a ningú
 | Producción | `gpx.sogra.es` | `main` | GitHub Pages (workflow `pages.yml`) |
 | Preproducción | `pre.gpx.sogra.es` | `develop` | Docker en la VM, imagen `ghcr.io/ikersolozabal/gpx-weather-ride:pre` |
 
+## Páginas
+
+| Ruta | Qué es |
+| --- | --- |
+| `/` | Portada: explica la herramienta, cómo funciona y preguntas frecuentes. El botón **App** lleva a la aplicación. |
+| `/app/` | La aplicación: subir el GPX, elegir salida y ritmo, mapa, perfil y tabla. |
+
+Las dos comparten idioma (se guarda en el navegador), estilos base y configuración (`config.js`). Las rutas internas son relativas, así que funcionan igual en nginx, en GitHub Pages y en una subcarpeta.
+
 ## Cómo funciona
 
 1. Se leen los puntos del GPX (`<trkpt>` o, si no hay, `<rtept>`) y se calcula la distancia acumulada.
@@ -31,13 +40,19 @@ Los umbrales se cambian con variables de entorno.
 
 ```
 web/                    La web que se sirve (HTML, CSS y módulos JS, sin compilación)
-├── index.html
+├── index.html          Portada (/): qué es, cómo funciona, preguntas frecuentes y botón «App»
+├── app/index.html      La aplicación (/app/)
+├── 404.html            Página de error
 ├── config.js           Configuración para desarrollo (en Docker se genera al arrancar)
-├── css/app.css
+├── css/
+│   ├── base.css        Tipografías, colores, modo oscuro y colores del viento (común)
+│   ├── landing.css     Portada y 404
+│   └── app.css         Aplicación
 └── js/
-    ├── app.js          Arranque y formulario
+    ├── landing.js      Portada: idioma, aviso de pre y créditos
+    ├── app.js          Aplicación: arranque y formulario
     ├── config.js       Valores por defecto de la configuración
-    ├── i18n.js         Textos en español e inglés
+    ├── i18n.js         Textos en español e inglés (portada y app)
     ├── lib/            Lógica pura y testeada: GPX, geometría, tiempos, meteo, viento, plan
     └── ui/             Mapa (Leaflet), perfil (SVG) y formato
 test/                   Tests con node --test (sin dependencias)
@@ -54,7 +69,7 @@ Requisitos: Node.js 20 o superior.
 
 ```bash
 npm install     # Leaflet y las fuentes (opcional: sin esto se usan unpkg y las fuentes del sistema)
-npm run dev     # http://localhost:5173
+npm run dev     # portada en http://localhost:5173 y app en http://localhost:5173/app/
 npm test
 npm run build   # genera dist/, la misma web que se publica en GitHub Pages
 ```
