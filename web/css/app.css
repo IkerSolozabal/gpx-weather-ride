@@ -147,7 +147,7 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .swatch, .share-bar > span { background: var(--c); }
 
 /* Tabla de puntos kilométricos */
-.table-wrap { margin: 0 -8px; }
+.table-wrap { margin: 0 -8px; overflow-x: auto; }
 .km-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .km-table th {
   text-align: left; font-weight: 500; font-size: 13px; color: var(--muted);
@@ -258,6 +258,7 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   .credits { order: 7; margin: 0; padding: 12px 16px 24px; }
   .table-wrap { margin: 0 -8px; }
   .km-table th { top: 0; }
+  .km-table td, .km-table th { padding-inline: 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
