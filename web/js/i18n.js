@@ -75,7 +75,7 @@ const STRINGS = {
     err_bad_response: 'La respuesta de Open-Meteo no tiene el formato esperado.',
     err_generic: 'Algo ha fallado al calcular la ruta: {detail}',
     navApp: 'App',
-    heroTitle: 'Sabe de dónde sopla el viento en cada kilómetro de tu ruta',
+    heroTitle: 'Conoce de dónde sopla el viento en cada kilómetro de tu ruta',
     heroLead: 'Sube el GPX de tu salida en bici o de tu carrera, elige a qué hora sales y a qué ritmo vas. Verás el viento, la temperatura y la lluvia que te encontrarás en cada tramo, a la hora en que pasarás por él.',
     heroCta: 'Abrir la app',
     heroSecondary: 'Cómo funciona',
