@@ -40,8 +40,14 @@ server {
     }
 
     # HTML, JS, CSS y config.js: el navegador siempre revalida (ETag), así cada despliegue se ve al momento.
+    # Una ruta que no existe (p. ej. /sitemap.xml en pre) devuelve 404, no la portada.
     location / {
         expires -1;
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ =404;
+    }
+
+    error_page 404 /404.html;
+    location = /404.html {
+        internal;
     }
 }
