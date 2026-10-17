@@ -59,6 +59,9 @@ jobs:
           RUN_PACE: ${{ vars.RUN_PACE }}
           BIKE_MARKER_KM: ${{ vars.BIKE_MARKER_KM }}
           RUN_MARKER_KM: ${{ vars.RUN_MARKER_KM }}
+          BEST_START_STEP_MIN: ${{ vars.BEST_START_STEP_MIN }}
+          TEMP_COMFORT_MIN: ${{ vars.TEMP_COMFORT_MIN }}
+          TEMP_COMFORT_MAX: ${{ vars.TEMP_COMFORT_MAX }}
           WIND_CALM_KMH: ${{ vars.WIND_CALM_KMH }}
           WIND_HEAD_ANGLE: ${{ vars.WIND_HEAD_ANGLE }}
           WIND_TAIL_ANGLE: ${{ vars.WIND_TAIL_ANGLE }}

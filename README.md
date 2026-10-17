@@ -263,6 +263,7 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 | Mapa | `MAP_TILE_URL`, `MAP_TILE_ATTRIBUTION`, `MAP_MAX_ZOOM` |
 | Cálculo | `ROUTE_SAMPLE_KM`, `ROUTE_MAX_SAMPLES`, `ROUTE_SEGMENT_M`, `GPX_MAX_FILE_MB` |
 | Formulario | `DEFAULT_SPORT`, `BIKE_SPEED_KMH`, `RUN_PACE`, `BIKE_MARKER_KM`, `RUN_MARKER_KM` |
+| Mejor hora de salida | `BEST_START_STEP_MIN`, `TEMP_COMFORT_MIN`, `TEMP_COMFORT_MAX` |
 | Viento | `WIND_CALM_KMH`, `WIND_HEAD_ANGLE`, `WIND_TAIL_ANGLE` |
 | Seguridad | `CSP_EXTRA_CONNECT` |
 | Solo GitHub Pages | `SITE_URL` (por defecto `https://gpx.sogra.es`, para canonical y sitemap), `PAGES_CNAME` (opcional, escribe el archivo `CNAME`) |

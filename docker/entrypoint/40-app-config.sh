@@ -45,6 +45,10 @@ add runPace          RUN_PACE
 add bikeMarkerKm     BIKE_MARKER_KM
 add runMarkerKm      RUN_MARKER_KM
 
+add bestStartStepMin BEST_START_STEP_MIN
+add comfortMinC      TEMP_COMFORT_MIN
+add comfortMaxC      TEMP_COMFORT_MAX
+
 add calmKmh          WIND_CALM_KMH
 add headAngle        WIND_HEAD_ANGLE
 add tailAngle        WIND_TAIL_ANGLE
