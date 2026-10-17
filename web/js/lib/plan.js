@@ -1,6 +1,6 @@
 /**
  * Plan de la ruta: horas de paso, meteo en cada punto y viento por tramos.
- * Las funciones son puras salvo `computePlan`, que pide la meteo.
+ * Las funciones son puras salvo `fetchSeries` y `computePlan`, que piden la meteo.
  */
 
 import { bearingAround, distanceSteps, elevationStats, pointAt, sliceTrack } from './geo.js';
@@ -15,7 +15,7 @@ import { relativeWind, WIND } from './wind.js';
 export function samplePoints(track, clock, { sampleKm, maxSamples = 200 }) {
   let step = sampleKm * 1000;
   if (track.total / step + 1 > maxSamples) step = track.total / (maxSamples - 1);
-  return distanceSteps(track.total, step).map((d) => ({ ...pointAt(track, d), time: clock(d) }));
+  return distanceSteps(track.total, step).map((d) => ({ ...pointAt(track, d), ...(clock ? { time: clock(d) } : {}) }));
 }
 
 /** Índice del punto de muestreo más cercano a la distancia d. */
@@ -98,17 +98,24 @@ export function assemblePlan(track, samples, series, opts) {
 }
 
 /**
+ * Pide la meteo de los puntos de muestreo para una franja de tiempo [fromMs, toMs].
+ * Con las series se puede calcular el plan de cualquier salida dentro de la franja
+ * sin volver a consultar la API (lo usa la búsqueda de la mejor hora).
+ * @returns {Promise<{samples: object[], series: object[], fromMs: number, toMs: number}>}
+ */
+export async function fetchSeries(track, opts, fetchImpl) {
+  const samples = samplePoints(track, null, { sampleKm: opts.sampleKm, maxSamples: opts.maxSamples });
+  const series = await fetchForecast(samples, { ...opts.weather, startMs: opts.fromMs, endMs: opts.toMs }, fetchImpl);
+  return { samples, series, fromMs: opts.fromMs, toMs: opts.toMs };
+}
+
+/**
  * Calcula el plan completo pidiendo la meteo a Open-Meteo.
  * @param {object} track Resultado de buildTrack.
  * @param {object} opts startMs, speedKmh, sampleKm, markerKm, segmentM, wind, weather{baseUrl, apiKey, models, chunkSize}
  */
 export async function computePlan(track, opts, fetchImpl) {
   const clock = makeClock(opts.startMs, opts.speedKmh);
-  const samples = samplePoints(track, clock, { sampleKm: opts.sampleKm, maxSamples: opts.maxSamples });
-  const series = await fetchForecast(
-    samples,
-    { ...opts.weather, startMs: opts.startMs, endMs: clock(track.total) },
-    fetchImpl,
-  );
+  const { samples, series } = await fetchSeries(track, { ...opts, fromMs: opts.startMs, toMs: clock(track.total) }, fetchImpl);
   return assemblePlan(track, samples, series, opts);
 }

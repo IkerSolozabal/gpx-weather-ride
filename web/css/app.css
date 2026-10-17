@@ -1,87 +1,6 @@
-/* GPX Weather Ride
- * Tipografía: Barlow Condensed (cifras y títulos) y Barlow (texto), servidas desde /vendor/fonts.
- * Color: la paleta del viento (contra, a favor, lateral, calma) es el único color fuerte de la página.
- */
+/* GPX Weather Ride: la aplicación (/app/). Requiere base.css. */
 
-@font-face { font-family: 'Barlow'; font-weight: 400; font-display: swap; src: url('../vendor/fonts/barlow-latin-400-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Barlow'; font-weight: 500; font-display: swap; src: url('../vendor/fonts/barlow-latin-500-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Barlow'; font-weight: 600; font-display: swap; src: url('../vendor/fonts/barlow-latin-600-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Barlow Condensed'; font-weight: 500; font-display: swap; src: url('../vendor/fonts/barlow-condensed-latin-500-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Barlow Condensed'; font-weight: 600; font-display: swap; src: url('../vendor/fonts/barlow-condensed-latin-600-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url('../vendor/fonts/barlow-condensed-latin-700-normal.woff2') format('woff2'); }
-
-:root {
-  --paper: #eef1f0;
-  --surface: #ffffff;
-  --ink: #1d2b36;
-  --muted: #5b6b77;
-  --line: #d6dde1;
-  --line-strong: #b7c2c9;
-  --focus: #2b6cb0;
-
-  --head: #c23b30;
-  --tail: #22875a;
-  --cross: #c98f0e;
-  --calm: #8a9aa6;
-  --unknown: #c7cfd4;
-
-  --font-text: 'Barlow', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-figure: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', system-ui, sans-serif;
-
-  --panel-w: 400px;
-  --profile-h: 168px;
-  --r-sm: 4px;
-  --r-md: 8px;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --paper: #0f171d;
-    --surface: #16212a;
-    --ink: #e5ebee;
-    --muted: #96a6b1;
-    --line: #26343f;
-    --line-strong: #3a4a56;
-    --focus: #6ea8e8;
-    --head: #e2574b;
-    --tail: #3bb37b;
-    --cross: #e3aa2b;
-    --calm: #7d8f9c;
-    --unknown: #3a4853;
-    color-scheme: dark;
-  }
-}
-
-*, *::before, *::after { box-sizing: border-box; }
-[hidden] { display: none !important; }
 html, body { height: 100%; }
-body {
-  margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font: 400 15px/1.5 var(--font-text);
-  -webkit-font-smoothing: antialiased;
-}
-h1, h2, h3, p, dl, dd, ul { margin: 0; }
-button, input, select { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-.visually-hidden {
-  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-}
-
-/* --- Aviso de preproducción --- */
-.pre-banner {
-  background: #f1c40f;
-  color: #1d2b36;
-  font: 600 14px/1 var(--font-figure);
-  text-align: center;
-  padding: 5px 16px 4px;
-  border-bottom: 4px solid transparent;
-  border-image: repeating-linear-gradient(-45deg, #1d2b36 0 8px, #f1c40f 8px 16px) 4;
-}
 
 /* --- Estructura --- */
 .layout {
@@ -116,6 +35,7 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   font: 700 30px/1 var(--font-figure);
   letter-spacing: -0.01em;
 }
+.brand-name a { color: inherit; text-decoration: none; }
 .tagline { color: var(--muted); margin-top: 6px; max-width: 34ch; }
 .lang select {
   border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-sm);
@@ -214,6 +134,71 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .message { font-size: 14px; padding: 10px 12px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--head) 12%, var(--surface)); color: var(--ink); border-left: 3px solid var(--head); }
 .message.is-warning { background: color-mix(in srgb, var(--cross) 14%, var(--surface)); border-left-color: var(--cross); }
 
+/* --- Más opciones (desplegable) --- */
+.advanced { border-top: 1px solid var(--line); padding-top: 12px; }
+.advanced > summary {
+  cursor: pointer; list-style: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  font-weight: 500; color: var(--ink);
+}
+.advanced > summary::-webkit-details-marker { display: none; }
+.advanced > summary::marker { content: ''; }
+/* Flecha a la derecha: apunta abajo cerrada y arriba abierta */
+.advanced > summary::after {
+  content: ''; width: 8px; height: 8px; flex: none;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg); transition: transform .15s;
+}
+.advanced[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.advanced > summary:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.advanced[open] > summary { border-color: var(--ink); }
+.adv-block { display: grid; gap: 12px; margin-top: 16px; }
+.adv-block + .adv-block { border-top: 1px dashed var(--line); padding-top: 16px; }
+.adv-title { font: 600 18px/1.2 var(--font-figure); }
+.adv-hint { color: var(--muted); font-size: 14px; margin-top: -6px; }
+.field select {
+  width: 100%; height: 40px; border: 1px solid var(--line-strong); background: var(--surface);
+  border-radius: var(--r-sm); padding: 0 8px;
+}
+.secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 40px; border: 1.5px solid var(--ink); border-radius: var(--r-md);
+  background: transparent; color: var(--ink); cursor: pointer;
+  font: 600 17px/1 var(--font-figure);
+}
+.secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.secondary:disabled { opacity: .45; cursor: not-allowed; }
+.secondary.is-loading .spinner { display: inline-block; }
+
+.check { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; cursor: pointer; }
+.check input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--ink); }
+.share-status { font-size: 14px; color: var(--muted); }
+.share-link {
+  width: 100%; height: 36px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  padding: 0 8px; font-size: 12.5px; background: var(--paper); color: var(--muted);
+}
+.message.is-info { background: color-mix(in srgb, var(--tail) 12%, var(--surface)); border-left-color: var(--tail); }
+
+/* Resultado: una fila por hora de salida, barra = lo buena que es respecto a las demás */
+.best { display: grid; gap: 10px; }
+.best-summary { font-size: 14px; }
+.best-summary b { font: 600 17px/1 var(--font-figure); }
+.best-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
+.best-row {
+  width: 100%; display: grid; grid-template-columns: 46px 1fr auto; align-items: center; gap: 10px;
+  padding: 4px 6px; border: 0; border-radius: var(--r-sm); background: none; cursor: pointer; text-align: left;
+}
+.best-row:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.best-row.is-best { background: color-mix(in srgb, var(--tail) 12%, transparent); }
+.best-row.is-current { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.best-time { font: 600 16px/1 var(--font-figure); font-variant-numeric: tabular-nums; }
+.best-bar { height: 8px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.best-bar > span { display: block; height: 100%; background: var(--ink); }
+.best-row.is-best .best-bar > span { background: var(--tail); }
+.best-meta { font-size: 12.5px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.best-row:disabled { cursor: default; opacity: .5; }
+
 /* Reparto del viento */
 .results[hidden] { display: none; }
 .share-title { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
@@ -224,15 +209,10 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .legend b { font: 600 16px/1 var(--font-figure); font-variant-numeric: tabular-nums; }
 .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 
-.c-head { --c: var(--head); }
-.c-tail { --c: var(--tail); }
-.c-cross { --c: var(--cross); }
-.c-calm { --c: var(--calm); }
-.c-unknown { --c: var(--unknown); }
 .swatch, .share-bar > span { background: var(--c); }
 
 /* Tabla de puntos kilométricos */
-.table-wrap { margin: 0 -8px; }
+.table-wrap { margin: 0 -8px; overflow-x: auto; }
 .km-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .km-table th {
   text-align: left; font-weight: 500; font-size: 13px; color: var(--muted);
@@ -252,13 +232,9 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .km-table .icon { margin-right: 4px; }
 .arrow { width: 18px; height: 18px; flex: none; color: var(--c); }
 
-/* Qué hace esta web (texto que también lee Google) */
-.about { display: flex; flex-direction: column; gap: 10px; color: var(--ink); }
-.about p, .about li { color: var(--muted); }
-.about-list { padding-left: 18px; display: grid; gap: 4px; }
-.about details { border-top: 1px solid var(--line); padding: 8px 0 0; }
-.about summary { cursor: pointer; font-weight: 500; color: var(--ink); }
-.about details p { margin-top: 6px; }
+.about-link { font-size: 14px; }
+.about-link a { color: var(--muted); text-underline-offset: 3px; }
+.about-link a:hover { color: var(--ink); }
 .noscript { padding: 16px; text-align: center; }
 
 .credits { margin-top: auto; color: var(--muted); font-size: 12.5px; display: grid; gap: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
@@ -343,15 +319,14 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   #plan-form { order: 3; }
   .stage { order: 4; height: 64vh; min-height: 380px; margin-bottom: 24px; border-block: 1px solid var(--line); }
   .results { order: 5; }
-  .about { order: 6; }
+  .about-link { order: 6; }
   .credits { order: 7; margin: 0; padding: 12px 16px 24px; }
   .table-wrap { margin: 0 -8px; }
   .km-table th { top: 0; }
+  .km-table td, .km-table th { padding-inline: 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* Página 404 */
-.not-found { max-width: 32rem; margin: 15vh auto; padding: 0 16px; display: grid; gap: 12px; }

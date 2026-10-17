@@ -31,7 +31,7 @@ export function toGpx(points, { name = 'Test', tag = 'trkpt' } = {}) {
  * @param {number} startSec Primer instante (unix s).
  * @param {number} hours Número de horas.
  */
-export function fakeLocation(startSec, hours, { temp = 15, windSpeed = 20, windDir = 0, gusts = 30, precipProb = 10 } = {}) {
+export function fakeLocation(startSec, hours, { temp = 15, windSpeed = 20, windDir = 0, gusts = 30, precipProb = 10, sunriseH = 7, sunsetH = 18 } = {}) {
   const at = (v, i) => (typeof v === 'function' ? v(i) : v);
   const time = Array.from({ length: hours }, (_, i) => startSec + i * 3600);
   return {
@@ -45,6 +45,10 @@ export function fakeLocation(startSec, hours, { temp = 15, windSpeed = 20, windD
       wind_speed_10m: time.map((_, i) => at(windSpeed, i)),
       wind_direction_10m: time.map((_, i) => at(windDir, i)),
       wind_gusts_10m: time.map((_, i) => at(gusts, i)),
+    },
+    daily: {
+      sunrise: Array.from({ length: Math.ceil(hours / 24) }, (_, k) => startSec + k * 86400 + sunriseH * 3600),
+      sunset: Array.from({ length: Math.ceil(hours / 24) }, (_, k) => startSec + k * 86400 + sunsetH * 3600),
     },
   };
 }

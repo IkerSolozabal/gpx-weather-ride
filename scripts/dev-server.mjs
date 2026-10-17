@@ -47,6 +47,11 @@ async function resolvePath(urlPath) {
 
 createServer(async (req, res) => {
   const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  // /app → /app/ (como hacen nginx y GitHub Pages), para que las rutas relativas funcionen.
+  if (!urlPath.endsWith('/') && !extname(urlPath) && (await stat(join(web, urlPath)).catch(() => null))?.isDirectory()) {
+    res.writeHead(301, { Location: `${urlPath}/` }).end();
+    return;
+  }
   const file = await resolvePath(urlPath);
   if (!file.startsWith(root)) {
     res.writeHead(403).end();

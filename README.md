@@ -14,6 +14,15 @@ Es una web estática: el GPX se procesa en el navegador y nunca se sube a ningú
 | Producción | `gpx.sogra.es` | `main` | GitHub Pages (workflow `pages.yml`) |
 | Preproducción | `pre.gpx.sogra.es` | `develop` | Docker en la VM, imagen `ghcr.io/ikersolozabal/gpx-weather-ride:pre` |
 
+## Páginas
+
+| Ruta | Qué es |
+| --- | --- |
+| `/` | Portada: explica la herramienta, cómo funciona y preguntas frecuentes. El botón **App** lleva a la aplicación. |
+| `/app/` | La aplicación: subir el GPX, elegir salida y ritmo, mapa, perfil y tabla. |
+
+Las dos comparten idioma (se guarda en el navegador), estilos base y configuración (`config.js`). Las rutas internas son relativas, así que funcionan igual en nginx, en GitHub Pages y en una subcarpeta.
+
 ## Cómo funciona
 
 1. Se leen los puntos del GPX (`<trkpt>` o, si no hay, `<rtept>`) y se calcula la distancia acumulada.
@@ -27,17 +36,51 @@ Es una web estática: el GPX se procesa en el navegador y nunca se sube a ningú
 
 Los umbrales se cambian con variables de entorno.
 
+## Más opciones
+
+La app tiene un desplegable **Más opciones**, cerrado por defecto, con funciones para quien las quiera sin complicar el uso normal.
+
+### Mejor hora de salida
+
+Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una franja del día elegido y puntúa cada una (menos es mejor):
+
+| Factor | Cómo se mide | Vale 1 cuando… |
+| --- | --- | --- |
+| Viento | Componente media del viento en contra a lo largo de la ruta (a favor resta) | 15 km/h de media en contra |
+| Lluvia | Probabilidad media de lluvia | 40 % |
+| Temperatura | Grados de sensación térmica fuera de `TEMP_COMFORT_MIN`–`TEMP_COMFORT_MAX` | 8 °C fuera del rango |
+| Noche | Parte de la ruta antes del amanecer o después del anochecer | La mitad de la ruta |
+
+El selector «Qué evitar sobre todo» multiplica por 3 el peso del factor elegido (viento, lluvia o temperatura); «Un poco de todo» los pesa igual. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
+
+### Compartir ruta
+
+Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte y la velocidad. No hay servidor ni base de datos:
+
+- La ruta se simplifica (Douglas-Peucker, unos 5 m de tolerancia), se codifica como polilínea con altitudes y se comprime (deflate + base64url). Una ruta de 70 km ocupa unos 1,7 KB; si el enlace pasa de 7.000 caracteres, se simplifica más.
+- Todo va detrás de `#`, que el navegador no envía a ningún servidor: ni GitHub ni nadie ve la ruta.
+- Por defecto se quitan los primeros y últimos 500 m para no revelar dónde vive quien comparte (salvo en rutas de menos de 2 km).
+- Quien abre el enlace ve la ruta y el pronóstico actualizado en ese momento. Si la hora de salida ya pasó, se pone la próxima hora.
+
+La lógica está en `web/js/lib/share.js`.
+
 ## Estructura
 
 ```
 web/                    La web que se sirve (HTML, CSS y módulos JS, sin compilación)
-├── index.html
+├── index.html          Portada (/): qué es, cómo funciona, preguntas frecuentes y botón «App»
+├── app/index.html      La aplicación (/app/)
+├── 404.html            Página de error
 ├── config.js           Configuración para desarrollo (en Docker se genera al arrancar)
-├── css/app.css
+├── css/
+│   ├── base.css        Tipografías, colores, modo oscuro y colores del viento (común)
+│   ├── landing.css     Portada y 404
+│   └── app.css         Aplicación
 └── js/
-    ├── app.js          Arranque y formulario
+    ├── landing.js      Portada: idioma, aviso de pre y créditos
+    ├── app.js          Aplicación: arranque y formulario
     ├── config.js       Valores por defecto de la configuración
-    ├── i18n.js         Textos en español e inglés
+    ├── i18n.js         Textos en español e inglés (portada y app)
     ├── lib/            Lógica pura y testeada: GPX, geometría, tiempos, meteo, viento, plan
     └── ui/             Mapa (Leaflet), perfil (SVG) y formato
 test/                   Tests con node --test (sin dependencias)
@@ -54,7 +97,7 @@ Requisitos: Node.js 20 o superior.
 
 ```bash
 npm install     # Leaflet y las fuentes (opcional: sin esto se usan unpkg y las fuentes del sistema)
-npm run dev     # http://localhost:5173
+npm run dev     # portada en http://localhost:5173 y app en http://localhost:5173/app/
 npm test
 npm run build   # genera dist/, la misma web que se publica en GitHub Pages
 ```
@@ -248,6 +291,7 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 | Mapa | `MAP_TILE_URL`, `MAP_TILE_ATTRIBUTION`, `MAP_MAX_ZOOM` |
 | Cálculo | `ROUTE_SAMPLE_KM`, `ROUTE_MAX_SAMPLES`, `ROUTE_SEGMENT_M`, `GPX_MAX_FILE_MB` |
 | Formulario | `DEFAULT_SPORT`, `BIKE_SPEED_KMH`, `RUN_PACE`, `BIKE_MARKER_KM`, `RUN_MARKER_KM` |
+| Mejor hora de salida | `BEST_START_STEP_MIN`, `TEMP_COMFORT_MIN`, `TEMP_COMFORT_MAX` |
 | Viento | `WIND_CALM_KMH`, `WIND_HEAD_ANGLE`, `WIND_TAIL_ANGLE` |
 | Seguridad | `CSP_EXTRA_CONNECT` |
 | Solo GitHub Pages | `SITE_URL` (por defecto `https://gpx.sogra.es`, para canonical y sitemap), `PAGES_CNAME` (opcional, escribe el archivo `CNAME`) |
@@ -268,8 +312,6 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 ## Ideas para siguientes versiones
 
 - Velocidad ajustada por pendiente (subidas y bajadas), con un modelo para bici y otro para carrera.
-- Sugerir la mejor hora de salida comparando varias.
-- Compartir una ruta por enlace.
 - Importar desde Strava o Ride with GPS.
 
 ## Licencia

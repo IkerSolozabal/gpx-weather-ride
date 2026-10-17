@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>App: viento y meteo de tu ruta GPX | GPX Weather Ride</title>
+  <meta name="description" content="Carga tu ruta GPX, elige hora de salida y velocidad, y mira en el mapa el viento, la temperatura, la lluvia y la hora de paso en cada kilómetro.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#1d2b36">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GPX Weather Ride">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:title" content="Viento y meteo por tramos para tu ruta GPX">
+  <meta property="og:description" content="Viento en contra o a favor, temperatura, lluvia y hora de paso en cada kilómetro de tu ruta en bici o corriendo.">
+  <meta property="og:image" content="../og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- seo:urls (el build de producción pone aquí canonical, og:url y las URLs absolutas) -->
+  <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/app.css">
+  <script src="../config.js"></script>
+  <script src="../vendor/leaflet/leaflet.js"></script>
+  <script src="../js/leaflet-fallback.js"></script>
+  <script type="module" src="../js/app.js"></script>
+</head>
+<body>
+  <noscript><p class="noscript">GPX Weather Ride necesita JavaScript para leer tu ruta GPX y consultar el pronóstico.</p></noscript>
+  <div class="pre-banner" id="pre-banner" hidden data-i18n="preBanner"></div>
+
+  <div class="layout">
+    <aside class="panel">
+      <header class="brand">
+        <div class="brand-row">
+          <h1 class="brand-name"><a href="../" id="app-name">GPX Weather Ride</a></h1>
+          <label class="lang">
+            <span class="visually-hidden" data-i18n="language"></span>
+            <select id="lang"></select>
+          </label>
+        </div>
+        <p class="tagline" data-i18n="tagline"></p>
+      </header>
+
+      <section class="block" id="route-block" aria-labelledby="h-route">
+        <h2 class="block-title" id="h-route" data-i18n="stepRoute"></h2>
+
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept=".gpx,application/gpx+xml" class="visually-hidden">
+          <span class="drop-title" data-i18n="dropTitle"></span>
+          <span class="drop-sub"><span data-i18n="dropOr"></span> <span class="link" data-i18n="dropPick"></span></span>
+          <span class="drop-hint" data-i18n="dropHint"></span>
+        </label>
+
+        <div class="route" id="route" hidden>
+          <div class="route-head">
+            <p class="route-name" id="route-name"></p>
+            <button type="button" class="link-btn" id="change-route" data-i18n="changeRoute"></button>
+          </div>
+          <dl class="figures">
+            <div><dt data-i18n="distance"></dt><dd id="route-distance"></dd></div>
+            <div><dt data-i18n="ascent"></dt><dd id="route-ascent"></dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <form class="block" id="plan-form" novalidate aria-labelledby="h-plan">
+        <h2 class="block-title" id="h-plan" data-i18n="stepPlan"></h2>
+
+        <fieldset class="sport">
+          <legend class="visually-hidden" data-i18n="sport"></legend>
+          <label><input type="radio" name="sport" value="bike"><span data-i18n="bike"></span></label>
+          <label><input type="radio" name="sport" value="run"><span data-i18n="run"></span></label>
+        </fieldset>
+
+        <div class="fields">
+          <label class="field">
+            <span class="field-label" data-i18n="start"></span>
+            <input type="datetime-local" id="start" required step="300">
+          </label>
+
+          <label class="field" id="speed-field">
+            <span class="field-label" data-i18n="speed"></span>
+            <span class="input-unit">
+              <input type="number" id="speed" inputmode="decimal" min="1" max="80" step="0.5">
+              <span>km/h</span>
+            </span>
+          </label>
+
+          <label class="field" id="pace-field" hidden>
+            <span class="field-label" data-i18n="pace"></span>
+            <span class="input-unit">
+              <input type="text" id="pace" inputmode="numeric" autocomplete="off" pattern="\d{1,2}:[0-5]\d" data-i18n-placeholder="paceHint">
+              <span>min/km</span>
+            </span>
+          </label>
+        </div>
+
+        <p class="estimate" id="estimate" aria-live="polite"></p>
+
+        <button type="submit" class="primary" id="submit" disabled>
+          <span class="spinner" aria-hidden="true"></span>
+          <span id="submit-label" data-i18n="submit"></span>
+        </button>
+        <p class="message" id="message" role="alert" hidden></p>
+
+        <details class="advanced" id="advanced">
+          <summary data-i18n="advanced">Más opciones</summary>
+
+          <section class="adv-block" aria-labelledby="h-best">
+            <h3 class="adv-title" id="h-best" data-i18n="bestTitle">Mejor hora de salida</h3>
+            <p class="adv-hint" data-i18n="bestHint">Compara varias salidas el mismo día y te sugiere la mejor.</p>
+            <div class="fields">
+              <label class="field">
+                <span class="field-label" data-i18n="bestFrom">Desde</span>
+                <input type="time" id="best-from" value="07:00" step="900">
+              </label>
+              <label class="field">
+                <span class="field-label" data-i18n="bestTo">Hasta</span>
+                <input type="time" id="best-to" value="13:00" step="900">
+              </label>
+            </div>
+            <label class="field">
+              <span class="field-label" data-i18n="bestPriority">Qué evitar sobre todo</span>
+              <select id="best-priority">
+                <option value="balanced" data-i18n="prioBalanced">Un poco de todo</option>
+                <option value="wind" data-i18n="prioWind">Viento en contra</option>
+                <option value="rain" data-i18n="prioRain">Lluvia</option>
+                <option value="temp" data-i18n="prioTemp">Frío o calor</option>
+              </select>
+            </label>
+            <button type="button" class="secondary" id="best-run" disabled>
+              <span class="spinner" aria-hidden="true"></span>
+              <span data-i18n="bestRun">Comparar horas</span>
+            </button>
+            <div class="best" id="best-results" aria-live="polite" hidden></div>
+          </section>
+
+          <section class="adv-block" aria-labelledby="h-share">
+            <h3 class="adv-title" id="h-share" data-i18n="shareTitle">Compartir ruta</h3>
+            <p class="adv-hint" data-i18n="shareHint">Crea un enlace con la ruta, la hora de salida y el ritmo. Quien lo abra verá el pronóstico actualizado.</p>
+            <label class="check">
+              <input type="checkbox" id="share-hide" checked>
+              <span data-i18n="shareHide">Ocultar los primeros y últimos 500 m</span>
+            </label>
+            <button type="button" class="secondary" id="share-run" disabled>
+              <span data-i18n="shareRun">Compartir enlace</span>
+            </button>
+            <p class="share-status" id="share-status" aria-live="polite" hidden></p>
+            <input type="text" class="share-link" id="share-link" readonly hidden aria-label="Enlace">
+          </section>
+        </details>
+      </form>
+
+      <section class="block results" id="results" hidden aria-labelledby="h-summary">
+        <h2 class="visually-hidden" id="h-summary" data-i18n="windShare"></h2>
+        <dl class="figures figures-4" id="summary"></dl>
+
+        <div class="share">
+          <p class="share-title" data-i18n="windShare"></p>
+          <div class="share-bar" id="share-bar"></div>
+          <ul class="legend" id="legend"></ul>
+        </div>
+
+        <h3 class="block-title" data-i18n="table"></h3>
+        <div class="table-wrap">
+          <table class="km-table">
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="colKm"></th>
+                <th scope="col" data-i18n="colTime"></th>
+                <th scope="col" data-i18n="colTemp"></th>
+                <th scope="col" data-i18n="colWind"></th>
+                <th scope="col" data-i18n="colRain"></th>
+              </tr>
+            </thead>
+            <tbody id="km-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p class="about-link"><a href="../#como-funciona" data-i18n="aboutLink">Qué es y cómo funciona</a></p>
+
+      <footer class="credits">
+        <p id="credits"></p>
+        <p data-i18n="footerNote"></p>
+      </footer>
+    </aside>
+
+    <main class="stage">
+      <div class="map" id="map" role="region" aria-label="Mapa"></div>
+      <p class="map-empty" id="map-empty" data-i18n="emptyMap"></p>
+      <section class="profile" id="profile" hidden aria-labelledby="h-profile">
+        <h2 class="visually-hidden" id="h-profile" data-i18n="profile"></h2>
+        <div class="profile-canvas" id="profile-canvas"></div>
+        <p class="profile-note" id="profile-note" hidden data-i18n="profileNoEle"></p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

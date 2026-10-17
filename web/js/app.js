@@ -2,8 +2,10 @@ import { loadConfig } from './config.js';
 import { applyI18n, getLang, LANGS, setLang, t, weatherLabel } from './i18n.js';
 import { parseGpx, GpxError } from './lib/gpx.js';
 import { bearingAround, buildTrack, elevationStats, pointAt } from './lib/geo.js';
-import { formatDuration, parsePace, paceToKmh } from './lib/timing.js';
-import { computePlan, nearestSample } from './lib/plan.js';
+import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
+import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
+import { rankStarts } from './lib/beststart.js';
+import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -34,7 +36,9 @@ const store = {
   },
 };
 
-const state = { track: null, routeName: null, plan: null, busy: false };
+// cache: series de Open-Meteo de la ruta actual para una franja de tiempo, reutilizables
+// al cambiar la hora de salida o al comparar horas.
+const state = { track: null, routeName: null, plan: null, busy: false, cache: null, best: null };
 
 const els = {
   form: $('plan-form'),
@@ -91,10 +95,23 @@ function init() {
   els.form.addEventListener('input', onFormChange);
   els.form.addEventListener('submit', onSubmit);
   els.file.addEventListener('change', () => els.file.files[0] && loadFile(els.file.files[0]));
+  $('best-run').addEventListener('click', onBestRun);
+  const prio = store.get('bestPriority', 'balanced');
+  $('best-priority').value = prio;
+  $('best-priority').addEventListener('change', () => store.set('bestPriority', $('best-priority').value));
+  $('share-run').addEventListener('click', onShare);
+  // Al abrir «Más opciones» su contenido suele quedar fuera de la vista del panel: lo mostramos.
+  $('advanced').addEventListener('toggle', (ev) => {
+    if (!ev.target.open) return;
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => ev.target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }));
+  });
+  window.addEventListener('hashchange', loadFromLink);
   $('change-route').addEventListener('click', () => els.file.click());
   setupDrop();
 
   refreshTexts();
+  loadFromLink();
 }
 
 function refreshTexts() {
@@ -108,6 +125,7 @@ function refreshTexts() {
   if (state.track) showRouteInfo();
   updateEstimate();
   if (state.plan) renderPlan();
+  if (state.best) renderBest();
 }
 
 // --- Carga del GPX ---
@@ -145,7 +163,21 @@ async function loadFile(file) {
   } finally {
     els.file.value = '';
   }
+  // Una ruta nueva sustituye a la del enlace compartido.
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  showLoadedRoute();
+}
+
+/** Prepara la interfaz para la ruta de state.track (de un GPX o de un enlace). */
+function showLoadedRoute() {
   state.plan = null;
+  state.cache = null;
+  state.best = null;
+  $('best-results').hidden = true;
+  $('best-run').disabled = false;
+  $('share-run').disabled = false;
+  $('share-status').hidden = true;
+  $('share-link').hidden = true;
   els.results.hidden = true;
   els.profile.hidden = true;
   profile.clear();
@@ -227,16 +259,7 @@ async function onSubmit(ev) {
 
   setBusy(true);
   try {
-    state.plan = await computePlan(state.track, {
-      startMs: form.startMs,
-      speedKmh: form.speedKmh,
-      sampleKm: cfg.sampleKm,
-      maxSamples: cfg.maxSamples,
-      markerKm: form.sport === 'bike' ? cfg.bikeMarkerKm : cfg.runMarkerKm,
-      segmentM: cfg.segmentM,
-      wind: windOpts,
-      weather: { baseUrl: cfg.weatherApiUrl, apiKey: cfg.weatherApiKey, models: cfg.weatherModels },
-    });
+    state.plan = await planFor(form.startMs, form.speedKmh, form.sport);
     renderPlan();
     if (state.plan.missingWeather) showMessage(t('warnMissing'), true);
   } catch (err) {
@@ -248,6 +271,33 @@ async function onSubmit(ev) {
   }
 }
 
+/** Opciones de cálculo comunes al plan y a la comparación de horas. */
+function planOptions(sport) {
+  return {
+    sampleKm: cfg.sampleKm,
+    maxSamples: cfg.maxSamples,
+    markerKm: sport === 'bike' ? cfg.bikeMarkerKm : cfg.runMarkerKm,
+    segmentM: cfg.segmentM,
+    wind: windOpts,
+    weather: { baseUrl: cfg.weatherApiUrl, apiKey: cfg.weatherApiKey, models: cfg.weatherModels },
+  };
+}
+
+/** Series meteorológicas para [fromMs, toMs]; reutiliza las descargadas si cubren la franja. */
+async function getSeries(fromMs, toMs) {
+  const c = state.cache;
+  if (c && c.track === state.track && c.fromMs <= fromMs && c.toMs >= toMs) return c;
+  const data = await fetchSeries(state.track, { ...planOptions('bike'), fromMs, toMs });
+  state.cache = { ...data, track: state.track };
+  return state.cache;
+}
+
+async function planFor(startMs, speedKmh, sport) {
+  const endMs = startMs + (state.track.total / 1000 / speedKmh) * 3600_000;
+  const { samples, series } = await getSeries(startMs, endMs);
+  return assemblePlan(state.track, samples, series, { ...planOptions(sport), startMs, speedKmh });
+}
+
 function setBusy(on) {
   state.busy = on;
   els.submit.disabled = on;
@@ -255,9 +305,11 @@ function setBusy(on) {
   els.submitLabel.textContent = on ? t('loading') : state.plan ? t('update') : t('submit');
 }
 
-function showMessage(text, warning = false) {
+/** kind: true o 'warning' (aviso amarillo), 'info' (verde) o nada (error). */
+function showMessage(text, kind = false) {
   els.message.textContent = text;
-  els.message.classList.toggle('is-warning', warning);
+  els.message.classList.toggle('is-warning', kind === true || kind === 'warning');
+  els.message.classList.toggle('is-info', kind === 'info');
   els.message.hidden = false;
 }
 function hideMessage() {
@@ -323,10 +375,188 @@ function renderPlan() {
   const hasEle = profile.show(track, plan);
   $('profile-note').hidden = hasEle;
   els.submitLabel.textContent = t('update');
+  if (state.best) renderBest();
+  if (state.scrollToMap) {
+    state.scrollToMap = false;
+    $('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function fig(label, value, sub) {
   return `<div><dt>${label}</dt><dd>${value}${sub ? `<span class="sub">${sub}</span>` : ''}</dd></div>`;
+}
+
+// --- Mejor hora de salida ---
+function timeOnStartDay(hhmm) {
+  const base = els.start.value ? new Date(els.start.value) : new Date();
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  if (!Number.isFinite(h)) return NaN;
+  const d = new Date(base);
+  d.setHours(h, m || 0, 0, 0);
+  return d.getTime();
+}
+
+async function onBestRun() {
+  if (!state.track || state.busy) return;
+  hideMessage();
+  const form = readForm();
+  if (form.error) {
+    form.field.setAttribute('aria-invalid', 'true');
+    return showMessage(t(form.error));
+  }
+  const fromMs = timeOnStartDay($('best-from').value);
+  const toMs = timeOnStartDay($('best-to').value);
+  if (!(toMs > fromMs)) return showMessage(t('err_best_window'));
+  const durMs = (state.track.total / 1000 / form.speedKmh) * 3600_000;
+  const limit = Date.now() + cfg.forecastDays * DAY;
+  if (fromMs > limit) return showMessage(t('err_best_none', { days: cfg.forecastDays }));
+
+  const btn = $('best-run');
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  try {
+    const { samples, series } = await getSeries(fromMs, Math.min(toMs + durMs, limit));
+    const list = rankStarts({
+      track: state.track,
+      samples,
+      series,
+      speedKmh: form.speedKmh,
+      fromMs,
+      toMs,
+      stepMin: cfg.bestStartStepMin,
+      priority: $('best-priority').value,
+      wind: windOpts,
+      comfortMin: cfg.comfortMinC,
+      comfortMax: cfg.comfortMaxC,
+    });
+    state.best = { list, sport: form.sport, speedKmh: form.speedKmh };
+    renderBest();
+    if (!list.some((c) => c.best)) showMessage(t('err_best_none', { days: cfg.forecastDays }));
+  } catch (err) {
+    console.error(err);
+    if (err instanceof WeatherError) showMessage(t(`err_${err.code}`, { detail: err.detail || '', days: cfg.forecastDays }));
+    else showMessage(t('err_generic', { detail: err.message }));
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+  }
+}
+
+function renderBest() {
+  const box = $('best-results');
+  const { list } = state.best;
+  const best = list.find((c) => c.best);
+  const current = state.plan ? state.plan.startMs : null;
+  let html = '';
+  if (best) {
+    html += `<p class="best-summary">${t('bestSummary', {
+      time: `<b>${f.time(best.startMs)}</b>`,
+      head: Math.round(best.headShare * 100),
+      rain: Math.round(best.rainMax),
+      tmin: f.temp(best.tempMin),
+      tmax: f.temp(best.tempMax),
+    })}${best.darkShare > 0.02 ? ` ${t('bestDark')}` : ''}</p>`;
+    html += `<button type="button" class="primary best-use" data-start="${best.startMs}">${t('bestUse', { time: f.time(best.startMs) })}</button>`;
+  }
+  html += `<p class="adv-hint">${t('bestPick')}</p><ul class="best-list">`;
+  for (const c of list) {
+    const ok = c.score !== null;
+    const cls = ['best-row', c.best ? 'is-best' : '', current === c.startMs ? 'is-current' : ''].join(' ').trim();
+    const width = ok ? Math.max(4, Math.round(c.quality * 100)) : 0;
+    const meta = ok
+      ? `${t('bestMeta', { temp: f.temp(c.tempMin), head: Math.round(c.headShare * 100), rain: Math.round(c.rainMax) })}${c.darkShare > 0.02 ? ' · 🌙' : ''}`
+      : t('bestNoData');
+    html += `<li><button type="button" class="${cls}" data-start="${c.startMs}" ${ok ? '' : 'disabled'}>
+      <span class="best-time">${f.time(c.startMs)}</span>
+      <span class="best-bar"><span style="width:${width}%"></span></span>
+      <span class="best-meta">${meta}</span>
+    </button></li>`;
+  }
+  html += '</ul>';
+  box.innerHTML = html;
+  box.hidden = false;
+  for (const b of box.querySelectorAll('[data-start]')) {
+    b.addEventListener('click', () => useStart(Number(b.dataset.start)));
+  }
+}
+
+/** Pone la hora elegida en el formulario y calcula su ruta con la meteo ya descargada. */
+async function useStart(startMs) {
+  els.start.value = f.toLocalInput(startMs);
+  updateEstimate();
+  state.scrollToMap = window.matchMedia('(max-width: 860px)').matches;
+  els.form.requestSubmit();
+}
+
+// --- Compartir por enlace ---
+async function onShare() {
+  if (!state.track) return;
+  hideMessage();
+  const form = readForm();
+  const status = $('share-status');
+  const linkInput = $('share-link');
+  linkInput.hidden = true;
+  let url;
+  try {
+    const { hash } = await encodeShare(state.track, {
+      name: state.routeName || '',
+      startMs: form.error ? undefined : form.startMs,
+      sport: els.form.sport.value,
+      speedKmh: form.error ? undefined : form.speedKmh,
+      hideMeters: $('share-hide').checked ? 500 : 0,
+    });
+    url = `${location.origin}${location.pathname}#${hash}`;
+  } catch (err) {
+    return showMessage(err instanceof ShareError ? t(`err_share_${err.code}`) : t('err_generic', { detail: err.message }));
+  }
+  const title = state.routeName || 'GPX Weather Ride';
+  const touch = window.matchMedia('(pointer: coarse)').matches;
+  try {
+    if (touch && navigator.share) {
+      await navigator.share({ title, url });
+      status.textContent = t('shareShared');
+    } else {
+      await navigator.clipboard.writeText(url);
+      status.textContent = t('shareCopied');
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') return; // el usuario cerró el menú de compartir
+    status.textContent = t('shareManual');
+    linkInput.value = url;
+    linkInput.hidden = false;
+    linkInput.select();
+  }
+  status.hidden = false;
+}
+
+/** Si la URL trae una ruta compartida (#r=…), la carga y calcula su meteo. */
+async function loadFromLink() {
+  let shared;
+  try {
+    shared = await decodeShare(location.hash);
+  } catch (err) {
+    return showMessage(t(`err_share_${err.code || 'bad_link'}`));
+  }
+  if (!shared) return;
+
+  state.track = buildTrack(shared.points);
+  state.routeName = shared.name || t('unnamedRoute');
+  if (shared.sport) {
+    els.form.sport.value = shared.sport;
+    toggleSport(shared.sport);
+  }
+  if (shared.speedKmh) {
+    if (els.form.sport.value === 'run') els.pace.value = formatPace(kmhToPace(shared.speedKmh));
+    else els.speed.value = Math.round(shared.speedKmh * 10) / 10;
+  }
+  const past = !shared.startMs || shared.startMs < Date.now();
+  els.start.value = f.toLocalInput(past ? Math.ceil(Date.now() / 3600_000) * 3600_000 : shared.startMs);
+  showLoadedRoute();
+  els.form.requestSubmit();
+  // El mensaje se muestra después de que onSubmit limpie los anteriores.
+  setTimeout(() => {
+    if (els.message.hidden) showMessage(t(past && shared.startMs ? 'shareLoadedPast' : 'shareLoaded', { name: state.routeName }), 'info');
+  }, 0);
 }
 
 function hoverInfo(d) {

@@ -94,11 +94,13 @@ export function createProfile(container, handlers) {
     el('line', { x1: m.l, x2: m.l + iw, y1: base, y2: base }, axis);
     const withDay = f.differentDay(plan.startMs, plan.endMs);
     let lastX = -Infinity;
+    // Con el día de la semana ("sáb, 23:00") las etiquetas de salida y llegada son más anchas.
+    const minGap = withDay ? 86 : 58;
     plan.markers.forEach((mk, i) => {
       const px = x(mk.d);
       const isLast = i === plan.markers.length - 1;
-      if (!isLast && px - lastX < 58) return;
-      if (isLast && px - lastX < 58 && i > 0) {
+      if (!isLast && px - lastX < minGap) return;
+      if (isLast && px - lastX < minGap && i > 0) {
         // Si la llegada choca con el anterior, se queda la llegada.
         axis.lastChild?.remove();
         axis.lastChild?.remove();

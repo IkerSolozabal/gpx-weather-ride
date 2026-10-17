@@ -37,6 +37,7 @@ export function buildForecastUrl(points, opts) {
     p.set('elevation', points.map((x) => Math.round(x.ele)).join(','));
   }
   p.set('hourly', HOURLY_VARS.join(','));
+  p.set('daily', 'sunrise,sunset');
   p.set('wind_speed_unit', 'kmh');
   p.set('timezone', 'GMT');
   p.set('timeformat', 'unixtime');
@@ -62,7 +63,21 @@ export function toSeries(location) {
     windSpeed: h.wind_speed_10m,
     windDir: h.wind_direction_10m,
     gusts: h.wind_gusts_10m,
+    // Amanecer y anochecer de cada día (ms). Vacíos si la API no los devuelve.
+    sunrise: (location.daily?.sunrise || []).map((t) => t * 1000),
+    sunset: (location.daily?.sunset || []).map((t) => t * 1000),
   };
+}
+
+/** true si el instante cae entre el amanecer y el anochecer; null si no hay datos de ese día. */
+export function isDaylight(series, tMs) {
+  const { sunrise = [], sunset = [] } = series;
+  for (let i = 0; i < sunrise.length; i++) {
+    const dayStart = sunrise[i] - 12 * 3600_000;
+    const dayEnd = sunset[i] + 12 * 3600_000;
+    if (tMs >= dayStart && tMs < dayEnd) return tMs >= sunrise[i] && tMs <= sunset[i];
+  }
+  return null;
 }
 
 /**

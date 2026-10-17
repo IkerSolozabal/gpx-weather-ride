@@ -33,6 +33,9 @@ export const ENV_MAP = {
   RUN_PACE: 'runPace',
   BIKE_MARKER_KM: 'bikeMarkerKm',
   RUN_MARKER_KM: 'runMarkerKm',
+  BEST_START_STEP_MIN: 'bestStartStepMin',
+  TEMP_COMFORT_MIN: 'comfortMinC',
+  TEMP_COMFORT_MAX: 'comfortMaxC',
   WIND_CALM_KMH: 'calmKmh',
   WIND_HEAD_ANGLE: 'headAngle',
   WIND_TAIL_ANGLE: 'tailAngle',
@@ -88,22 +91,32 @@ export function siteUrlFromEnv(env) {
   return url.replace(/\/+$/, '');
 }
 
-/** Pone canonical, og:url y URLs absolutas de imagen en el HTML (Google y redes sociales las necesitan). */
-export function injectSeo(html, siteUrl) {
+/** Páginas HTML que se publican, con su ruta pública. */
+export const PAGES = [
+  { file: 'index.html', path: '/' },
+  { file: 'app/index.html', path: '/app/' },
+];
+
+/**
+ * Pone canonical, og:url y URLs absolutas (imagen y JSON-LD) en una página.
+ * Google y las redes sociales necesitan URLs absolutas.
+ */
+export function injectSeo(html, siteUrl, path = '/') {
   if (!siteUrl) return html;
-  const tags = [`<link rel="canonical" href="${siteUrl}/">`, `<meta property="og:url" content="${siteUrl}/">`].join('\n  ');
+  const url = `${siteUrl}${path}`;
+  const tags = [`<link rel="canonical" href="${url}">`, `<meta property="og:url" content="${url}">`].join('\n  ');
   return html
     .replace(/<!-- seo:urls[^>]*-->/, tags)
-    .replace('<meta property="og:image" content="og-image.png">', `<meta property="og:image" content="${siteUrl}/og-image.png">`);
+    .replace(/<meta property="og:image" content="(?:\.\.\/)?og-image\.png">/, `<meta property="og:image" content="${siteUrl}/og-image.png">`)
+    .replace('"url": "/app/"', `"url": "${siteUrl}/app/"`);
 }
 
-export function sitemapXml(siteUrl, date = new Date()) {
+export function sitemapXml(siteUrl, date = new Date(), pages = PAGES) {
+  const day = date.toISOString().slice(0, 10);
+  const urls = pages.map((p) => `  <url>\n    <loc>${siteUrl}${p.path}</loc>\n    <lastmod>${day}</lastmod>\n  </url>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${siteUrl}/</loc>
-    <lastmod>${date.toISOString().slice(0, 10)}</lastmod>
-  </url>
+${urls}
 </urlset>
 `;
 }
@@ -127,13 +140,15 @@ async function build() {
   const cfg = configFromEnv(env);
   await writeFile(join(out, 'config.js'), configJs(cfg));
 
-  const index = join(out, 'index.html');
-  const html = await readFile(index, 'utf8');
   const allow = cfg.appEnv === 'pro' && env.ROBOTS_INDEX !== 'false';
   const siteUrl = siteUrlFromEnv(env);
   const robotsMeta = allow ? '' : '\n  <meta name="robots" content="noindex, nofollow">';
-  const head = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  ${cspMeta(env)}${robotsMeta}`);
-  await writeFile(index, injectSeo(head, siteUrl));
+  for (const page of PAGES) {
+    const file = join(out, page.file);
+    const html = await readFile(file, 'utf8');
+    const head = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  ${cspMeta(env)}${robotsMeta}`);
+    await writeFile(file, injectSeo(head, siteUrl, page.path));
+  }
 
   let robots = allow ? 'User-agent: *\nAllow: /\n' : 'User-agent: *\nDisallow: /\n';
   if (allow && siteUrl) {
