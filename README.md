@@ -90,6 +90,12 @@ Ya no hay `.env.pro`: se usan las **variables del repositorio** (Settings → Se
 
 Diferencias con Docker: GitHub Pages no permite cabeceras HTTP propias, así que la CSP va como `<meta>` en el HTML, y la no indexación de pre no aplica porque pre sigue en la VM.
 
+### Buscadores
+
+El build de producción añade `canonical`, Open Graph con URLs absolutas, `sitemap.xml` y la línea `Sitemap:` en `robots.txt`. La página lleva datos estructurados (`WebApplication`) y un texto con preguntas frecuentes que Google puede leer. Pre nunca se indexa.
+
+Para darla de alta en Google: [Search Console](https://search.google.com/search-console) → Añadir propiedad → *Dominio* `gpx.sogra.es` → verificar con el registro TXT en el DNS → Sitemaps → `https://gpx.sogra.es/sitemap.xml`.
+
 ### Plan B: producción en Docker
 
 La CI sigue publicando la imagen `:latest` desde `main`. Si algún día quieres volver a servir producción desde la VM, levanta el servicio `web` de `compose.yml` y apunta `gpx.sogra.es` al puerto 8080.
@@ -156,6 +162,12 @@ git pull && docker compose -f compose.yml -f compose.build.yml up -d --build web
 Ya no hay `.env.pro`: se usan las **variables del repositorio** (Settings → Secrets and variables → Actions → pestaña *Variables*), con los mismos nombres que [`.env.pro.example`](.env.pro.example), por ejemplo `BIKE_SPEED_KMH=27`. Un cambio de variable se aplica en la siguiente publicación (merge a `main` o *Run workflow*).
 
 Diferencias con Docker: GitHub Pages no permite cabeceras HTTP propias, así que la CSP va como `<meta>` en el HTML, y la no indexación de pre no aplica porque pre sigue en la VM.
+
+### Buscadores
+
+El build de producción añade `canonical`, Open Graph con URLs absolutas, `sitemap.xml` y la línea `Sitemap:` en `robots.txt`. La página lleva datos estructurados (`WebApplication`) y un texto con preguntas frecuentes que Google puede leer. Pre nunca se indexa.
+
+Para darla de alta en Google: [Search Console](https://search.google.com/search-console) → Añadir propiedad → *Dominio* `gpx.sogra.es` → verificar con el registro TXT en el DNS → Sitemaps → `https://gpx.sogra.es/sitemap.xml`.
 
 ### Plan B: producción en Docker
 
@@ -238,7 +250,7 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 | Formulario | `DEFAULT_SPORT`, `BIKE_SPEED_KMH`, `RUN_PACE`, `BIKE_MARKER_KM`, `RUN_MARKER_KM` |
 | Viento | `WIND_CALM_KMH`, `WIND_HEAD_ANGLE`, `WIND_TAIL_ANGLE` |
 | Seguridad | `CSP_EXTRA_CONNECT` |
-| Solo GitHub Pages | `PAGES_CNAME` (opcional, escribe el archivo `CNAME`) |
+| Solo GitHub Pages | `SITE_URL` (por defecto `https://gpx.sogra.es`, para canonical y sitemap), `PAGES_CNAME` (opcional, escribe el archivo `CNAME`) |
 | Compose (`.env`) | `PRO_BIND`, `PRO_PORT`, `PRE_BIND`, `PRE_PORT`, `PRO_IMAGE`, `PRE_IMAGE` |
 
 `APP_ENV` lo fija `compose.yml` (`pro` o `pre`). En `pre` se muestra una franja de aviso, el título lleva "(pre)" y la web no se indexa (`X-Robots-Tag` y `robots.txt`).

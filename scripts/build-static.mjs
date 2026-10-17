@@ -82,6 +82,32 @@ export function cspMeta(env) {
   return `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
 }
 
+/** URL pública del sitio (sin barra final): SITE_URL o, si no, https://PAGES_CNAME. */
+export function siteUrlFromEnv(env) {
+  const url = env.SITE_URL || (env.PAGES_CNAME ? `https://${env.PAGES_CNAME}` : '');
+  return url.replace(/\/+$/, '');
+}
+
+/** Pone canonical, og:url y URLs absolutas de imagen en el HTML (Google y redes sociales las necesitan). */
+export function injectSeo(html, siteUrl) {
+  if (!siteUrl) return html;
+  const tags = [`<link rel="canonical" href="${siteUrl}/">`, `<meta property="og:url" content="${siteUrl}/">`].join('\n  ');
+  return html
+    .replace(/<!-- seo:urls[^>]*-->/, tags)
+    .replace('<meta property="og:image" content="og-image.png">', `<meta property="og:image" content="${siteUrl}/og-image.png">`);
+}
+
+export function sitemapXml(siteUrl, date = new Date()) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${siteUrl}/</loc>
+    <lastmod>${date.toISOString().slice(0, 10)}</lastmod>
+  </url>
+</urlset>
+`;
+}
+
 async function build() {
   const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
   const out = join(root, process.env.OUT_DIR || 'dist');
@@ -103,11 +129,18 @@ async function build() {
 
   const index = join(out, 'index.html');
   const html = await readFile(index, 'utf8');
-  const robotsMeta = cfg.appEnv === 'pro' && env.ROBOTS_INDEX !== 'false' ? '' : '\n  <meta name="robots" content="noindex, nofollow">';
-  await writeFile(index, html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  ${cspMeta(env)}${robotsMeta}`));
-
   const allow = cfg.appEnv === 'pro' && env.ROBOTS_INDEX !== 'false';
-  await writeFile(join(out, 'robots.txt'), allow ? 'User-agent: *\nAllow: /\n' : 'User-agent: *\nDisallow: /\n');
+  const siteUrl = siteUrlFromEnv(env);
+  const robotsMeta = allow ? '' : '\n  <meta name="robots" content="noindex, nofollow">';
+  const head = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n  ${cspMeta(env)}${robotsMeta}`);
+  await writeFile(index, injectSeo(head, siteUrl));
+
+  let robots = allow ? 'User-agent: *\nAllow: /\n' : 'User-agent: *\nDisallow: /\n';
+  if (allow && siteUrl) {
+    robots += `\nSitemap: ${siteUrl}/sitemap.xml\n`;
+    await writeFile(join(out, 'sitemap.xml'), sitemapXml(siteUrl));
+  }
+  await writeFile(join(out, 'robots.txt'), robots);
 
   // Sin esto GitHub Pages procesa el sitio con Jekyll.
   await writeFile(join(out, '.nojekyll'), '');
