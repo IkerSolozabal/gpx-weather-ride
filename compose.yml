@@ -1,10 +1,10 @@
-# Producción (gpx.sogra.es) y preproducción (pre.gpx.sogra.es) en la misma VM.
+# Preproducción (pre.gpx.sogra.es) en la VM. Producción va en GitHub Pages; el servicio
+# `web` queda como plan B por si algún día se quiere servir también desde la VM.
 #
 # Por defecto usa las imágenes que publica GitHub Actions en GHCR:
 #   :latest  ← rama main     (producción)
 #   :pre     ← rama develop  (preproducción)
 #
-#   docker compose pull && docker compose up -d          # los dos entornos
 #   docker compose pull web-pre && docker compose up -d web-pre   # solo pre
 #
 # Puertos e imágenes: .env  ·  Configuración de la app: .env.pro y .env.pre

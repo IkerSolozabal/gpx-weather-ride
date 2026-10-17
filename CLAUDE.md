@@ -5,5 +5,6 @@
 - La interfaz (`web/js/ui/`, `web/js/app.js`) puede usar el DOM y `window.L` (Leaflet global).
 - Todo texto visible pasa por `web/js/i18n.js`, en español y en inglés.
 - Cualquier valor que pueda cambiar entre entornos es configuración: añadir la clave en `web/js/config.js` (`DEFAULTS`), la variable en `docker/entrypoint/40-app-config.sh` y documentarla en `.env.pro.example`, `.env.pre.example` y el README.
-- Ramas: `develop` → preproducción (`pre.gpx.sogra.es`), `main` → producción (`gpx.sogra.es`). Los cambios entran por PR a `develop`.
+- Ramas: `develop` → preproducción (`pre.gpx.sogra.es`, Docker en la VM), `main` → producción (`gpx.sogra.es`, GitHub Pages). Los cambios entran por PR a `develop`.
+- Una variable de configuración nueva va también en `ENV_MAP` de `scripts/build-static.mjs` y en `.github/workflows/pages.yml` (el test `build.test.js` comprueba que coincide con el script de Docker).
 - Commits en español, con prefijo convencional (`feat:`, `fix:`, `chore:`, `docs:`, `ci:`).

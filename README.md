@@ -9,10 +9,10 @@ Carga una ruta GPX de ciclismo o carrera, elige la hora de salida y tu velocidad
 
 Es una web estática: el GPX se procesa en el navegador y nunca se sube a ningún servidor. La meteo viene de [Open-Meteo](https://open-meteo.com/) (gratis, sin clave) y el mapa de [OpenStreetMap](https://www.openstreetmap.org/) con [Leaflet](https://leafletjs.com/).
 
-| Entorno | Dominio | Rama | Imagen |
+| Entorno | Dominio | Rama | Dónde se ejecuta |
 | --- | --- | --- | --- |
-| Producción | `gpx.sogra.es` | `main` | `ghcr.io/ikersolozabal/gpx-weather-ride:latest` |
-| Preproducción | `pre.gpx.sogra.es` | `develop` | `ghcr.io/ikersolozabal/gpx-weather-ride:pre` |
+| Producción | `gpx.sogra.es` | `main` | GitHub Pages (workflow `pages.yml`) |
+| Preproducción | `pre.gpx.sogra.es` | `develop` | Docker en la VM, imagen `ghcr.io/ikersolozabal/gpx-weather-ride:pre` |
 
 ## Cómo funciona
 
@@ -41,6 +41,7 @@ web/                    La web que se sirve (HTML, CSS y módulos JS, sin compil
     ├── lib/            Lógica pura y testeada: GPX, geometría, tiempos, meteo, viento, plan
     └── ui/             Mapa (Leaflet), perfil (SVG) y formato
 test/                   Tests con node --test (sin dependencias)
+scripts/                Servidor de desarrollo y generador de la web estática (GitHub Pages)
 docker/                 Plantilla de nginx y scripts que generan config.js al arrancar
 deploy/                 Ejemplo de Caddyfile para el proxy inverso
 compose.yml             Producción y preproducción
@@ -55,6 +56,7 @@ Requisitos: Node.js 20 o superior.
 npm install     # Leaflet y las fuentes (opcional: sin esto se usan unpkg y las fuentes del sistema)
 npm run dev     # http://localhost:5173
 npm test
+npm run build   # genera dist/, la misma web que se publica en GitHub Pages
 ```
 
 No hay paso de compilación: editas `web/` y recargas. Para probar otra configuración en local, edita `web/config.js` (por ejemplo `appEnv: 'pre'` muestra el aviso de preproducción).
@@ -64,12 +66,102 @@ No hay paso de compilación: editas `web/` y recargas. Para probar otra configur
 1. Trabaja en una rama a partir de `develop` (`feat/...`, `fix/...`) y abre un PR hacia `develop`.
 2. Al fusionar en `develop`, GitHub Actions pasa los tests y publica la imagen `:pre`.
 3. En la VM: `docker compose pull web-pre && docker compose up -d web-pre` → revísalo en `pre.gpx.sogra.es`.
-4. Cuando esté bien, PR de `develop` a `main`. Al fusionar se publica `:latest`.
-5. En la VM: `docker compose pull web && docker compose up -d web`.
+4. Cuando esté bien, PR de `develop` a `main`. Al fusionar, el workflow **Producción (GitHub Pages)** pasa los tests y publica la web en `gpx.sogra.es`. No hay que tocar nada en la VM.
 
-Cada imagen se publica también con la etiqueta `sha-<commit>`, para volver a una versión anterior fijando `PRO_IMAGE` en `.env`. Una etiqueta `v1.2.3` en Git publica la imagen `:1.2.3`. La versión desplegada aparece al pie de la página.
+Cada imagen de Docker se publica también con la etiqueta `sha-<commit>`, para volver a una versión anterior fijando `PRE_IMAGE` en `.env`. La versión desplegada (rama@commit) aparece al pie de la página.
 
-## Despliegue en la VM Linux
+## Producción en GitHub Pages
+
+La web es estática, así que producción se sirve gratis desde GitHub Pages. `scripts/build-static.mjs` genera `dist/` con Leaflet, las fuentes y un `config.js` hecho con las mismas variables que usa Docker.
+
+### Configurar una vez
+
+1. **Activar Pages:** Settings → Pages → *Build and deployment* → Source: **GitHub Actions**.
+2. **Dominio propio:** en esa misma pantalla, *Custom domain*: `gpx.sogra.es` → Save. Cuando GitHub emita el certificado, marca **Enforce HTTPS**.
+3. **DNS:** registro `CNAME` de `gpx` → `ikersolozabal.github.io` (en Cloudflare, en modo **DNS only**, nube gris, hasta que el certificado esté emitido).
+4. **Recomendado:** verificar el dominio en tu perfil (Settings → Pages → *Add a domain*) para que nadie más pueda usar `gpx.sogra.es` en otro repo.
+5. **Primera publicación:** Actions → *Producción (GitHub Pages)* → *Run workflow* en `main`, o haz merge de un PR a `main`.
+
+GitHub Pages en repositorios privados necesita un plan de pago; con el plan gratuito el repositorio tiene que ser público.
+
+### Configuración de producción
+
+Ya no hay `.env.pro`: se usan las **variables del repositorio** (Settings → Secrets and variables → Actions → pestaña *Variables*), con los mismos nombres que [`.env.pro.example`](.env.pro.example), por ejemplo `BIKE_SPEED_KMH=27`. Un cambio de variable se aplica en la siguiente publicación (merge a `main` o *Run workflow*).
+
+Diferencias con Docker: GitHub Pages no permite cabeceras HTTP propias, así que la CSP va como `<meta>` en el HTML, y la no indexación de pre no aplica porque pre sigue en la VM.
+
+### Plan B: producción en Docker
+
+La CI sigue publicando la imagen `:latest` desde `main`. Si algún día quieres volver a servir producción desde la VM, levanta el servicio `web` de `compose.yml` y apunta `gpx.sogra.es` al puerto 8080.
+
+## Preproducción en la VM Linux
+
+### 1. Preparar la VM (una vez)
+
+- Docker Engine con el plugin Compose v2 (2.24 o superior).
+- DNS: registro `A` de `pre.gpx.sogra.es` hacia tu IP pública.
+
+### 2. Descargar la configuración
+
+```bash
+git clone -b develop https://github.com/IkerSolozabal/gpx-weather-ride.git /opt/gpx-weather-ride
+cd /opt/gpx-weather-ride
+cp .env.example .env            # puertos e imágenes
+cp .env.pre.example .env.pre    # configuración de preproducción
+```
+
+En la VM solo hacen falta `compose.yml` y los `.env`: el código va dentro de la imagen.
+
+Si el proxy inverso está en otra máquina (por ejemplo, el Synology), pon `PRE_BIND=0.0.0.0` en `.env` para que pueda llegar al puerto, y limita ese puerto en el cortafuegos de la VM a la IP del proxy.
+
+### 3. Acceso a las imágenes de GHCR
+
+Las imágenes se publican en `ghcr.io/ikersolozabal/gpx-weather-ride`. Elige una opción:
+
+- **Hacer público el paquete** (lo más sencillo): GitHub → tu perfil → Packages → `gpx-weather-ride` → Package settings → Change visibility → Public.
+- **Mantenerlo privado** e iniciar sesión en la VM con un token personal (classic) con permiso `read:packages`:
+  ```bash
+  echo <TOKEN> | docker login ghcr.io -u IkerSolozabal --password-stdin
+  ```
+
+### 4. Arrancar y actualizar
+
+```bash
+docker compose pull web-pre
+docker compose up -d web-pre
+docker compose ps                 # debe salir "healthy"
+curl -s localhost:8081/healthz    # ok
+```
+
+Para actualizar tras un merge en `develop`, repite `pull` y `up -d`.
+
+### 5. Proxy inverso con HTTPS
+
+- **Synology (DSM):** Panel de control → Portal de inicio de sesión → Avanzado → Proxy inverso. Origen `HTTPS` · `pre.gpx.sogra.es` · `443` → destino `HTTP` · IP de la VM · `8081`. Asigna el certificado de Let's Encrypt de `pre.gpx.sogra.es`. Recomendado: un perfil de control de acceso que solo permita tu IP.
+- **Caddy en la VM:** copia `deploy/Caddyfile.example` a `/etc/caddy/Caddyfile` y ejecuta `sudo systemctl reload caddy`.
+
+### Alternativa: compilar en la VM sin GHCR
+
+```bash
+git clone -b develop https://github.com/IkerSolozabal/gpx-weather-ride.git /opt/gpx-pre
+cd /opt/gpx-pre && cp .env.example .env && cp .env.pre.example .env.pre
+docker compose -f compose.yml -f compose.build.yml up -d --build web-pre
+
+# Actualizar
+git pull && docker compose -f compose.yml -f compose.build.yml up -d --build web-pre
+```
+
+## Configuración de producción
+
+Ya no hay `.env.pro`: se usan las **variables del repositorio** (Settings → Secrets and variables → Actions → pestaña *Variables*), con los mismos nombres que [`.env.pro.example`](.env.pro.example), por ejemplo `BIKE_SPEED_KMH=27`. Un cambio de variable se aplica en la siguiente publicación (merge a `main` o *Run workflow*).
+
+Diferencias con Docker: GitHub Pages no permite cabeceras HTTP propias, así que la CSP va como `<meta>` en el HTML, y la no indexación de pre no aplica porque pre sigue en la VM.
+
+### Plan B: producción en Docker
+
+La CI sigue publicando la imagen `:latest` desde `main`. Si algún día quieres volver a servir producción desde la VM, levanta el servicio `web` de `compose.yml` y apunta `gpx.sogra.es` al puerto 8080.
+
+## Preproducción en la VM Linux
 
 ### 1. Preparar la VM (una vez)
 
@@ -133,7 +225,7 @@ git pull && docker compose -f compose.yml -f compose.build.yml up -d --build web
 
 ## Configuración
 
-Todo lo que puede cambiar va en variables de entorno, que se leen al **arrancar** el contenedor: tras editar `.env.pro` o `.env.pre` basta con `docker compose up -d`, sin reconstruir la imagen. El script `docker/entrypoint/40-app-config.sh` las convierte en `/config.js`, que lee el navegador.
+Todo lo que puede cambiar va en variables de entorno. En Docker (pre) se leen al **arrancar** el contenedor: tras editar `.env.pre` basta con `docker compose up -d web-pre`, sin reconstruir la imagen. En GitHub Pages (pro) se leen de las variables del repositorio al publicar. El script `docker/entrypoint/40-app-config.sh` las convierte en `/config.js`, que lee el navegador.
 
 La lista completa, con sus valores por defecto, está comentada en [`.env.pro.example`](.env.pro.example). En resumen:
 
@@ -146,6 +238,7 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 | Formulario | `DEFAULT_SPORT`, `BIKE_SPEED_KMH`, `RUN_PACE`, `BIKE_MARKER_KM`, `RUN_MARKER_KM` |
 | Viento | `WIND_CALM_KMH`, `WIND_HEAD_ANGLE`, `WIND_TAIL_ANGLE` |
 | Seguridad | `CSP_EXTRA_CONNECT` |
+| Solo GitHub Pages | `PAGES_CNAME` (opcional, escribe el archivo `CNAME`) |
 | Compose (`.env`) | `PRO_BIND`, `PRO_PORT`, `PRE_BIND`, `PRE_PORT`, `PRO_IMAGE`, `PRE_IMAGE` |
 
 `APP_ENV` lo fija `compose.yml` (`pro` o `pre`). En `pre` se muestra una franja de aviso, el título lleva "(pre)" y la web no se indexa (`X-Robots-Tag` y `robots.txt`).
