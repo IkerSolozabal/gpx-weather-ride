@@ -22,3 +22,16 @@ test('cspMeta permite el origen de la API de meteo', () => {
   assert.match(cspMeta({}), /connect-src 'self' https:\/\/api\.open-meteo\.com;/);
   assert.match(cspMeta({ WEATHER_API_URL: 'https://customer-api.open-meteo.com/v1/forecast', CSP_EXTRA_CONNECT: 'https://a.b' }), /connect-src 'self' https:\/\/customer-api\.open-meteo\.com https:\/\/a\.b;/);
 });
+
+test('SEO: canonical, og:url e imagen absolutos y sitemap con la URL del sitio', async () => {
+  const { injectSeo, siteUrlFromEnv, sitemapXml } = await import('../scripts/build-static.mjs');
+  assert.equal(siteUrlFromEnv({ PAGES_CNAME: 'gpx.sogra.es' }), 'https://gpx.sogra.es');
+  assert.equal(siteUrlFromEnv({ SITE_URL: 'https://x.es/', PAGES_CNAME: 'y' }), 'https://x.es');
+  const html = await readFile(new URL('../web/index.html', import.meta.url), 'utf8');
+  const out = injectSeo(html, 'https://gpx.sogra.es');
+  assert.match(out, /<link rel="canonical" href="https:\/\/gpx\.sogra\.es\/">/);
+  assert.match(out, /og:image" content="https:\/\/gpx\.sogra\.es\/og-image\.png"/);
+  assert.doesNotMatch(out, /seo:urls/);
+  assert.equal(injectSeo(html, ''), html);
+  assert.match(sitemapXml('https://gpx.sogra.es', new Date('2026-10-17')), /<loc>https:\/\/gpx\.sogra\.es\/<\/loc>[\s\S]*2026-10-17/);
+});
