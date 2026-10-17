@@ -1,0 +1,77 @@
+name: Producción (GitHub Pages)
+
+# Cada push a main publica la web en GitHub Pages (gpx.sogra.es).
+# La configuración sale de las variables del repositorio:
+#   Settings → Secrets and variables → Actions → pestaña Variables
+# con los mismos nombres que .env.pro.example (APP_NAME, BIKE_SPEED_KMH…).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm test
+
+      - run: npm install --omit=dev --no-audit --no-fund --no-package-lock
+
+      - name: Generar la web
+        run: node scripts/build-static.mjs
+        env:
+          APP_ENV: pro
+          APP_VERSION: ${{ github.ref_name }}@${{ github.sha }}
+          PAGES_CNAME: ${{ vars.PAGES_CNAME }}
+          ROBOTS_INDEX: ${{ vars.ROBOTS_INDEX }}
+          CSP_EXTRA_CONNECT: ${{ vars.CSP_EXTRA_CONNECT }}
+          APP_NAME: ${{ vars.APP_NAME }}
+          APP_DEFAULT_LANG: ${{ vars.APP_DEFAULT_LANG }}
+          WEATHER_API_URL: ${{ vars.WEATHER_API_URL }}
+          WEATHER_API_KEY: ${{ vars.WEATHER_API_KEY }}
+          WEATHER_MODELS: ${{ vars.WEATHER_MODELS }}
+          WEATHER_FORECAST_DAYS: ${{ vars.WEATHER_FORECAST_DAYS }}
+          MAP_TILE_URL: ${{ vars.MAP_TILE_URL }}
+          MAP_TILE_ATTRIBUTION: ${{ vars.MAP_TILE_ATTRIBUTION }}
+          MAP_MAX_ZOOM: ${{ vars.MAP_MAX_ZOOM }}
+          ROUTE_SAMPLE_KM: ${{ vars.ROUTE_SAMPLE_KM }}
+          ROUTE_MAX_SAMPLES: ${{ vars.ROUTE_MAX_SAMPLES }}
+          ROUTE_SEGMENT_M: ${{ vars.ROUTE_SEGMENT_M }}
+          GPX_MAX_FILE_MB: ${{ vars.GPX_MAX_FILE_MB }}
+          DEFAULT_SPORT: ${{ vars.DEFAULT_SPORT }}
+          BIKE_SPEED_KMH: ${{ vars.BIKE_SPEED_KMH }}
+          RUN_PACE: ${{ vars.RUN_PACE }}
+          BIKE_MARKER_KM: ${{ vars.BIKE_MARKER_KM }}
+          RUN_MARKER_KM: ${{ vars.RUN_MARKER_KM }}
+          WIND_CALM_KMH: ${{ vars.WIND_CALM_KMH }}
+          WIND_HEAD_ANGLE: ${{ vars.WIND_HEAD_ANGLE }}
+          WIND_TAIL_ANGLE: ${{ vars.WIND_TAIL_ANGLE }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
