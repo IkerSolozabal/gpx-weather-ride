@@ -53,6 +53,17 @@ Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una
 
 El selector «Qué evitar sobre todo» multiplica por 3 el peso del factor elegido (viento, lluvia o temperatura); «Un poco de todo» los pesa igual. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
 
+### Compartir ruta
+
+Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte y la velocidad. No hay servidor ni base de datos:
+
+- La ruta se simplifica (Douglas-Peucker, unos 5 m de tolerancia), se codifica como polilínea con altitudes y se comprime (deflate + base64url). Una ruta de 70 km ocupa unos 1,7 KB; si el enlace pasa de 7.000 caracteres, se simplifica más.
+- Todo va detrás de `#`, que el navegador no envía a ningún servidor: ni GitHub ni nadie ve la ruta.
+- Por defecto se quitan los primeros y últimos 500 m para no revelar dónde vive quien comparte (salvo en rutas de menos de 2 km).
+- Quien abre el enlace ve la ruta y el pronóstico actualizado en ese momento. Si la hora de salida ya pasó, se pone la próxima hora.
+
+La lógica está en `web/js/lib/share.js`.
+
 ## Estructura
 
 ```
@@ -301,8 +312,6 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 ## Ideas para siguientes versiones
 
 - Velocidad ajustada por pendiente (subidas y bajadas), con un modelo para bici y otro para carrera.
-- Sugerir la mejor hora de salida comparando varias.
-- Compartir una ruta por enlace.
 - Importar desde Strava o Ride with GPS.
 
 ## Licencia
