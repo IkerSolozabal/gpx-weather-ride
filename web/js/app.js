@@ -6,6 +6,7 @@ import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './l
 import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
 import { rankStarts } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
+import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -107,11 +108,13 @@ function init() {
     requestAnimationFrame(() => ev.target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }));
   });
   window.addEventListener('hashchange', loadFromLink);
+  $('recent-list').addEventListener('click', onRecentClick);
   $('change-route').addEventListener('click', () => els.file.click());
   $('reverse-route').addEventListener('click', onReverse);
   setupDrop();
 
   refreshTexts();
+  renderRecent();
   loadFromLink();
 }
 
@@ -127,6 +130,7 @@ function refreshTexts() {
   updateEstimate();
   if (state.plan) renderPlan();
   if (state.best) renderBest();
+  renderRecent();
 }
 
 // --- Carga del GPX ---
@@ -168,6 +172,7 @@ async function loadFile(file) {
   // Una ruta nueva sustituye a la del enlace compartido.
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
+  rememberRoute();
 }
 
 /** Prepara la interfaz para la ruta de state.track (de un GPX o de un enlace). */
@@ -191,6 +196,7 @@ function showLoadedRoute() {
   els.submit.disabled = false;
   els.submitLabel.textContent = t('submit');
   updateEstimate();
+  renderRecent();
 }
 
 function showRouteInfo() {
@@ -210,6 +216,78 @@ function onReverse() {
   state.reversed = !state.reversed;
   showLoadedRoute();
   if (hadPlan) els.form.requestSubmit();
+}
+
+// --- Rutas recientes (localStorage) ---
+const loadRecent = () => sanitizeRecent(store.get('recent', []));
+
+/** Guarda la ruta actual (en su sentido original) al principio de las recientes. */
+async function rememberRoute() {
+  if (!state.track) return;
+  const track = state.reversed ? reverseTrack(state.track) : state.track;
+  state.routeId = routeId(state.routeName, track);
+  try {
+    const { hash } = await encodeShare(track, { name: state.routeName || '', hideMeters: 0, tolerance: 2, maxLength: 60_000 });
+    const ele = elevationStats(track);
+    const entry = { id: state.routeId, name: state.routeName || '', km: track.total / 1000, gain: ele ? ele.gain : null, savedAt: Date.now(), hash };
+    store.set('recent', addRecent(loadRecent(), entry));
+  } catch (err) {
+    console.warn('No se ha podido guardar la ruta reciente', err);
+  }
+  renderRecent();
+}
+
+function timeAgo(ms) {
+  const rtf = new Intl.RelativeTimeFormat(getLang() === 'en' ? 'en' : 'es', { numeric: 'auto' });
+  const min = Math.round((ms - Date.now()) / 60_000);
+  if (Math.abs(min) < 60) return rtf.format(min, 'minute');
+  const h = Math.round(min / 60);
+  if (Math.abs(h) < 24) return rtf.format(h, 'hour');
+  return rtf.format(Math.round(h / 24), 'day');
+}
+
+function renderRecent() {
+  const list = loadRecent().filter((r) => !state.track || r.id !== state.routeId);
+  $('recent').hidden = list.length === 0;
+  $('recent-list').innerHTML = list
+    .map((r) => {
+      const name = f.escapeHtml(r.name || t('unnamedRoute'));
+      const gain = Number.isFinite(r.gain) ? ` · ${f.num(r.gain)} m+` : '';
+      return `<li>
+        <button type="button" class="recent-item" data-open="${f.escapeHtml(r.id)}">
+          <span class="recent-name">${name}</span>
+          <span class="recent-meta">${f.num(r.km, 1)} km${gain} · ${timeAgo(r.savedAt)}</span>
+        </button>
+        <button type="button" class="recent-del" data-del="${f.escapeHtml(r.id)}" aria-label="${f.escapeHtml(t('recentRemove', { name: r.name || t('unnamedRoute') }))}" title="${f.escapeHtml(t('recentRemove', { name: r.name || t('unnamedRoute') }))}">×</button>
+      </li>`;
+    })
+    .join('');
+}
+
+async function onRecentClick(ev) {
+  const del = ev.target.closest('[data-del]');
+  if (del) {
+    store.set('recent', removeRecent(loadRecent(), del.dataset.del));
+    return renderRecent();
+  }
+  const open = ev.target.closest('[data-open]');
+  if (!open) return;
+  const entry = loadRecent().find((r) => r.id === open.dataset.open);
+  if (!entry) return renderRecent();
+  hideMessage();
+  try {
+    const route = await decodeShare(entry.hash);
+    state.track = buildTrack(route.points);
+    state.routeName = route.name || entry.name;
+    state.reversed = false;
+  } catch {
+    store.set('recent', removeRecent(loadRecent(), entry.id));
+    renderRecent();
+    return showMessage(t('err_share_bad_link'));
+  }
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  showLoadedRoute();
+  rememberRoute();
 }
 
 // --- Formulario ---
@@ -567,6 +645,7 @@ async function loadFromLink() {
   const past = !shared.startMs || shared.startMs < Date.now();
   els.start.value = f.toLocalInput(past ? Math.ceil(Date.now() / 3600_000) * 3600_000 : shared.startMs);
   showLoadedRoute();
+  rememberRoute();
   els.form.requestSubmit();
   // El mensaje se muestra después de que onSubmit limpie los anteriores.
   setTimeout(() => {

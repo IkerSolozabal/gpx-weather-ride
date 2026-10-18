@@ -36,6 +36,12 @@ Las dos comparten idioma (se guarda en el navegador), estilos base y configuraci
 
 Los umbrales se cambian con variables de entorno.
 
+## Rutas recientes
+
+Las 5 últimas rutas cargadas (desde un GPX, un enlace o la propia lista) se guardan en el `localStorage` del navegador y aparecen bajo la zona de carga, con distancia, desnivel y cuándo se usaron. Un clic la vuelve a abrir sin buscar el archivo; la × la quita de la lista. No se envían a ningún sitio y solo existen en ese navegador.
+
+Cada ruta se guarda comprimida con el mismo formato que los enlaces compartidos, pero sin recortar los extremos y con 2 m de tolerancia (unos pocos KB por ruta). La lógica está en `web/js/lib/recent.js`.
+
 ## Recorrer en sentido contrario
 
 Debajo del nombre de la ruta, el botón **Recorrer en sentido contrario** le da la vuelta al recorrido. Si ya habías calculado la meteo, se recalcula en el nuevo sentido, así que basta con pulsarlo para comparar en qué sentido tienes más viento a favor. Vuelve a pulsarlo para el sentido original.

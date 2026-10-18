@@ -145,6 +145,9 @@ const STRINGS = {
     reverse: 'Recorrer en sentido contrario',
     reversed: 'Sentido contrario',
     reversedSuffix: '(sentido contrario)',
+    recentTitle: 'Rutas recientes',
+    recentNote: 'guardadas solo en este navegador',
+    recentRemove: 'Quitar «{name}» de recientes',
     warnMissing: 'Parte de la ruta queda fuera del pronóstico disponible y aparece sin datos.',
   },
   en: {
@@ -290,6 +293,9 @@ const STRINGS = {
     reverse: 'Ride it the other way',
     reversed: 'Reversed',
     reversedSuffix: '(reversed)',
+    recentTitle: 'Recent routes',
+    recentNote: 'saved only in this browser',
+    recentRemove: 'Remove “{name}” from recent routes',
     warnMissing: 'Part of the route falls outside the available forecast and shows no data.',
   },
 };
