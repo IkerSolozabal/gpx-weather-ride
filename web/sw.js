@@ -41,6 +41,7 @@ const PRECACHE = [
   './js/leaflet-fallback.js',
   './js/pwa.js',
   './js/lib/beststart.js',
+  './js/lib/clock.js',
   './js/lib/geo.js',
   './js/lib/gpx-export.js',
   './js/lib/gpx.js',
