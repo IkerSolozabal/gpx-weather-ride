@@ -74,6 +74,13 @@ Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta
 
 La lógica está en `web/js/lib/share.js`.
 
+### Exportar
+
+Necesita haber calculado la meteo de la ruta.
+
+- **Crear imagen**: un PNG vertical de 1080×1350 (el formato de las historias y de WhatsApp) con cuatro zonas: cabecera con el resumen (fecha, distancia, desnivel, salida y llegada, temperatura, viento, lluvia y reparto del viento), mapa con la ruta coloreada y los puntos kilométricos, perfil, y horas de paso con temperatura y viento. En el móvil abre el menú de compartir del sistema; en el ordenador se descarga. Se dibuja en el navegador (`web/js/ui/export-image.js`); el fondo del mapa usa las mismas teselas que la app, que deben permitir CORS (OpenStreetMap lo permite). Si no se pueden cargar, la imagen sale con la ruta sobre fondo liso.
+- **GPX con avisos**: el track y un waypoint en cada punto kilométrico con la hora de paso, la temperatura, el viento, las rachas y la lluvia. Los puntos con lluvia ≥ 50 %, rachas ≥ 45 km/h o viento en contra ≥ 20 km/h llevan «!» y el símbolo de peligro, para verlos en el Garmin o el Wahoo (`web/js/lib/gpx-export.js`).
+
 ## Estructura
 
 ```

@@ -19,6 +19,7 @@ test('configFromEnv ignora vacíos y pone pro por defecto', () => {
 });
 
 test('cspMeta permite el origen de la API de meteo', () => {
+  assert.match(cspMeta({}), /img-src 'self' data: blob: https:/);
   assert.match(cspMeta({}), /connect-src 'self' https:\/\/api\.open-meteo\.com;/);
   assert.match(cspMeta({ WEATHER_API_URL: 'https://customer-api.open-meteo.com/v1/forecast', CSP_EXTRA_CONNECT: 'https://a.b' }), /connect-src 'self' https:\/\/customer-api\.open-meteo\.com https:\/\/a\.b;/);
 });

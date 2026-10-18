@@ -7,6 +7,8 @@ import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
 import { rankStarts } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
+import { buildGpx, fileName } from './lib/gpx-export.js';
+import { renderShareImage, toBlob } from './ui/export-image.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -109,6 +111,8 @@ function init() {
   });
   window.addEventListener('hashchange', loadFromLink);
   $('recent-list').addEventListener('click', onRecentClick);
+  $('export-image').addEventListener('click', onExportImage);
+  $('export-gpx').addEventListener('click', onExportGpx);
   $('change-route').addEventListener('click', () => els.file.click());
   $('reverse-route').addEventListener('click', onReverse);
   setupDrop();
@@ -185,6 +189,7 @@ function showLoadedRoute() {
   $('share-run').disabled = false;
   $('share-status').hidden = true;
   $('share-link').hidden = true;
+  setExportReady(false);
   els.results.hidden = true;
   els.profile.hidden = true;
   profile.clear();
@@ -288,6 +293,114 @@ async function onRecentClick(ev) {
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
   rememberRoute();
+}
+
+// --- Exportar ---
+function setExportReady(ready) {
+  $('export-image').disabled = !ready;
+  $('export-gpx').disabled = !ready;
+  $('export-preview').hidden = true;
+  $('export-status').textContent = ready ? t('exportReady') : t('exportNeedPlan');
+}
+
+function displayName() {
+  return `${state.routeName || t('unnamedRoute')}${state.reversed ? ` ${t('reversedSuffix')}` : ''}`;
+}
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+async function onExportImage() {
+  if (!state.plan) return;
+  const btn = $('export-image');
+  const status = $('export-status');
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  try {
+    const data = {
+      track: state.track,
+      plan: state.plan,
+      routeName: displayName(),
+      elevation: elevationStats(state.track),
+      tileTemplate: cfg.tileUrl,
+      siteLabel: location.host || 'GPX Weather Ride',
+      attribution: `${t('footer', { meteo: 'Open-Meteo', map: '© OpenStreetMap' })}`,
+    };
+    let { canvas, tilesOk } = await renderShareImage(data);
+    let blob;
+    try {
+      blob = await toBlob(canvas);
+    } catch {
+      blob = null; // el mapa de fondo no permite exportar (sin CORS): se repite sin teselas
+    }
+    if (!blob) {
+      ({ canvas } = await renderShareImage({ ...data, tileTemplate: null }));
+      blob = await toBlob(canvas);
+      tilesOk = 0;
+    }
+    const name = fileName(displayName(), 'png');
+    const file = new File([blob], name, { type: 'image/png' });
+    const preview = $('export-preview');
+    preview.src = URL.createObjectURL(blob);
+    preview.alt = displayName();
+    preview.hidden = false;
+    let msg;
+    if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: displayName() });
+        msg = t('exportImageShared');
+      } catch (err) {
+        if (err && err.name === 'AbortError') msg = t('exportReady');
+        else {
+          download(blob, name);
+          msg = t('exportImageDone');
+        }
+      }
+    } else {
+      download(blob, name);
+      msg = t('exportImageDone');
+    }
+    status.textContent = tilesOk ? msg : `${msg} ${t('exportNoTiles')}`;
+  } catch (err) {
+    console.error(err);
+    showMessage(t('err_generic', { detail: err.message }));
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+  }
+}
+
+function onExportGpx() {
+  if (!state.plan) return;
+  const names = { rain: t('alertRain'), gusts: t('alertGusts'), head: t('alertHead') };
+  const gpx = buildGpx({
+    track: state.track,
+    plan: state.plan,
+    name: displayName(),
+    label: (m, alerts) => {
+      const w = m.weather;
+      const name = `km ${f.kmMark(m.d)} ${f.time(m.time)}${alerts.length ? ' !' : ''}`;
+      if (!w) return { name, desc: t('unknown') };
+      const desc = t('wptDesc', {
+        temp: f.temp(w.temp),
+        wind: f.num(w.windSpeed),
+        rel: relLabel(m.rel, m.course, w.windDir).toLowerCase(),
+        gusts: f.num(w.gusts),
+        rain: f.num(w.precipProb),
+      });
+      return { name, desc: alerts.length ? `! ${alerts.map((a) => names[a]).join(', ')}. ${desc}` : desc };
+    },
+  });
+  download(new Blob([gpx], { type: 'application/gpx+xml' }), fileName(displayName(), 'gpx'));
+  $('export-status').textContent = t('exportGpxDone');
 }
 
 // --- Formulario ---
@@ -467,6 +580,7 @@ function renderPlan() {
   const hasEle = profile.show(track, plan);
   $('profile-note').hidden = hasEle;
   els.submitLabel.textContent = t('update');
+  setExportReady(true);
   if (state.best) renderBest();
   if (state.scrollToMap) {
     state.scrollToMap = false;
