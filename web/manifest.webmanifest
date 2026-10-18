@@ -1,0 +1,35 @@
+{
+  "name": "GPX Weather Ride",
+  "short_name": "Weather Ride",
+  "description": "Viento, temperatura y hora de paso en cada tramo de tu ruta GPX.",
+  "lang": "es",
+  "start_url": "./app/?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eef1f0",
+  "theme_color": "#1d2b36",
+  "categories": [
+    "sports",
+    "weather",
+    "navigation"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

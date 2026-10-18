@@ -36,6 +36,11 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   letter-spacing: -0.01em;
 }
 .brand-name a { color: inherit; text-decoration: none; }
+.install-btn {
+  margin-left: auto; height: 30px; padding: 0 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--ink); background: var(--ink); color: var(--surface);
+  font: 600 15px/1 var(--font-figure); cursor: pointer;
+}
 .tagline { color: var(--muted); margin-top: 6px; max-width: 34ch; }
 .lang select {
   border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-sm);
@@ -66,13 +71,65 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .drop-hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
 
+/* Ruta cargada: tarjeta con borde a la izquierda para distinguirla de la lista de recientes */
+.route {
+  padding: 14px 16px 16px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--paper) 65%, var(--surface));
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink);
+}
 .route-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.route-name { font-weight: 600; overflow-wrap: anywhere; }
+.route-name { font: 600 23px/1.15 var(--font-figure); letter-spacing: -0.005em; overflow-wrap: anywhere; }
 .link-btn {
   background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap;
   color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-size: 14px;
 }
 .link-btn:hover { color: var(--ink); }
+
+.reverse-btn {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 10px;
+  padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  background: none; cursor: pointer; font-size: 14px; color: var(--ink);
+}
+.reverse-btn:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.reverse-btn[aria-pressed='true'] { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+
+/* Rutas recientes */
+.recent { border-top: 1px solid var(--line); padding-top: 10px; }
+.recent > summary { list-style: none; }
+.recent > summary::-webkit-details-marker { display: none; }
+.recent > summary::marker { content: ''; }
+.recent-title {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 14px; font-weight: 500; color: var(--muted);
+}
+.recent-title::after {
+  content: ''; width: 7px; height: 7px; margin-left: auto; flex: none;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg); transition: transform .15s;
+}
+.recent[open] > .recent-title::after { transform: translateY(2px) rotate(-135deg); }
+.recent-title:hover, .recent[open] > .recent-title { color: var(--ink); }
+.recent-count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--line); color: var(--ink); font: 600 13px/20px var(--font-figure); text-align: center;
+}
+.recent-note { font-size: 12.5px; color: var(--muted); margin: 4px 0 4px; }
+.recent-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
+.recent-list li { display: flex; align-items: stretch; gap: 2px; }
+.recent-item {
+  flex: 1; min-width: 0; display: grid; gap: 1px; text-align: left; cursor: pointer;
+  padding: 6px 8px; border: 0; border-radius: var(--r-sm); background: none;
+}
+.recent-item:hover, .recent-del:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.recent-name { font-size: 14px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-meta { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.recent-del {
+  flex: none; width: 34px; border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
+  color: var(--muted); font-size: 18px; line-height: 1;
+}
+.recent-del:hover { color: var(--head); }
 
 /* Cifras */
 .figures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 16px; margin-top: 10px; }
@@ -115,6 +172,44 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .input-unit { position: relative; display: block; }
 .input-unit input { padding-right: 62px; }
 .input-unit > span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; pointer-events: none; }
+
+/* Selector de salida en ordenador: días en botones y hora con − / + */
+#start-field.is-custom { grid-column: 1 / -1; }
+.start-picker { display: grid; gap: 8px; }
+.day-strip {
+  display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity;
+  padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: thin;
+}
+.day-chip {
+  flex: none; width: 54px; padding: 6px 0 7px; scroll-snap-align: start;
+  display: grid; justify-items: center; gap: 1px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.day-chip:hover { border-color: var(--ink); }
+.day-chip.is-on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.day-top { font-size: 12px; line-height: 1.2; color: inherit; opacity: .75; text-transform: none; }
+.day-num { font: 600 21px/1 var(--font-figure); font-variant-numeric: tabular-nums; }
+.clock { display: grid; grid-template-columns: 44px auto 44px; height: 44px; justify-content: start; }
+.clock-step {
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  font: 500 22px/1 var(--font-text); cursor: pointer; touch-action: manipulation;
+}
+.clock-step:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.clock-step:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.clock-step:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.clock-fields {
+  display: flex; align-items: center; padding: 0 6px;
+  border: 1px solid var(--line-strong); border-inline: 0; background: var(--surface);
+}
+.clock-fields:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--focus) 45%, transparent); }
+.start-picker .clock-fields input {
+  width: 2.1em; height: 34px; padding: 0; border: 0; border-radius: var(--r-sm);
+  background: none; text-align: center; caret-color: var(--focus);
+  font: 600 23px/1 var(--font-figure); font-variant-numeric: tabular-nums;
+}
+.start-picker .clock-fields input:focus { outline: none; box-shadow: none; background: color-mix(in srgb, var(--focus) 14%, transparent); }
+.clock-sep { font: 600 23px/1 var(--font-figure); padding: 0 1px 3px; }
 
 .estimate { color: var(--muted); font-size: 14px; min-height: 1.5em; }
 
@@ -178,6 +273,8 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   width: 100%; height: 36px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
   padding: 0 8px; font-size: 12.5px; background: var(--paper); color: var(--muted);
 }
+.export-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.export-preview { width: 100%; border-radius: var(--r-md); box-shadow: 0 0 0 1px var(--line); }
 .message.is-info { background: color-mix(in srgb, var(--tail) 12%, var(--surface)); border-left-color: var(--tail); }
 
 /* Resultado: una fila por hora de salida, barra = lo buena que es respecto a las demás */

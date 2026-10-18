@@ -19,8 +19,12 @@ test('configFromEnv ignora vacíos y pone pro por defecto', () => {
 });
 
 test('cspMeta permite el origen de la API de meteo', () => {
-  assert.match(cspMeta({}), /connect-src 'self' https:\/\/api\.open-meteo\.com;/);
-  assert.match(cspMeta({ WEATHER_API_URL: 'https://customer-api.open-meteo.com/v1/forecast', CSP_EXTRA_CONNECT: 'https://a.b' }), /connect-src 'self' https:\/\/customer-api\.open-meteo\.com https:\/\/a\.b;/);
+  assert.match(cspMeta({}), /img-src 'self' data: blob: https:/);
+  assert.match(cspMeta({}), /connect-src 'self' https:\/\/api\.open-meteo\.com https:\/\/tile\.openstreetmap\.org;/);
+  assert.match(
+    cspMeta({ WEATHER_API_URL: 'https://customer-api.open-meteo.com/v1/forecast', MAP_TILE_URL: 'https://{s}.tile.example.com/{z}/{x}/{y}.png', CSP_EXTRA_CONNECT: 'https://a.b' }),
+    /connect-src 'self' https:\/\/customer-api\.open-meteo\.com https:\/\/\*\.tile\.example\.com https:\/\/a\.b;/,
+  );
 });
 
 test('SEO: canonical, og:url e imagen absolutos en la portada y en la app, y sitemap con las dos', async () => {

@@ -170,9 +170,9 @@ export class ShareError extends Error {
  * @param {{name?, startMs?, sport?, speedKmh?, hideMeters?, maxLength?}} opts
  */
 export async function encodeShare(track, opts = {}) {
-  const { name = '', startMs, sport, speedKmh, hideMeters = 500, maxLength = 7000 } = opts;
+  const { name = '', startMs, sport, speedKmh, hideMeters = 500, maxLength = 7000, tolerance: startTolerance = 5 } = opts;
   const base = trimEnds(track, hideMeters);
-  let tolerance = 5;
+  let tolerance = startTolerance;
   for (let attempt = 0; attempt < 12; attempt++) {
     const pts = simplify(base, tolerance);
     const hasEle = pts.every((p) => Number.isFinite(p.ele));

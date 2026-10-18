@@ -1,11 +1,16 @@
 import { loadConfig } from './config.js';
 import { applyI18n, getLang, LANGS, setLang, t, weatherLabel } from './i18n.js';
 import { parseGpx, GpxError } from './lib/gpx.js';
-import { bearingAround, buildTrack, elevationStats, pointAt } from './lib/geo.js';
+import { bearingAround, buildTrack, elevationStats, pointAt, reverseTrack } from './lib/geo.js';
 import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
 import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
 import { rankStarts } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
+import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
+import { buildGpx, fileName } from './lib/gpx-export.js';
+import { renderShareImage, toBlob } from './ui/export-image.js';
+import { registerPwa } from './pwa.js';
+import { createStartPicker } from './ui/start-picker.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -38,7 +43,7 @@ const store = {
 
 // cache: series de Open-Meteo de la ruta actual para una franja de tiempo, reutilizables
 // al cambiar la hora de salida o al comparar horas.
-const state = { track: null, routeName: null, plan: null, busy: false, cache: null, best: null };
+const state = { track: null, routeName: null, plan: null, busy: false, cache: null, best: null, reversed: false };
 
 const els = {
   form: $('plan-form'),
@@ -90,6 +95,11 @@ function init() {
   els.start.value = f.toLocalInput(nextHour);
   els.start.min = f.toLocalInput(now - DAY);
   els.start.max = f.toLocalInput(now + cfg.forecastDays * DAY);
+  // Días en botones y hora en dos casillas (móvil y ordenador). Intro en los minutos salta a la velocidad o ritmo.
+  state.startPicker = createStartPicker(els.start, $('start-field'), {
+    days: cfg.forecastDays,
+    next: () => (els.speedField.hidden ? els.pace : els.speed),
+  });
 
   els.form.addEventListener('change', onFormChange);
   els.form.addEventListener('input', onFormChange);
@@ -107,15 +117,27 @@ function init() {
     requestAnimationFrame(() => ev.target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }));
   });
   window.addEventListener('hashchange', loadFromLink);
+  $('recent-list').addEventListener('click', onRecentClick);
+  $('export-image').addEventListener('click', onExportImage);
+  $('export-gpx').addEventListener('click', onExportGpx);
   $('change-route').addEventListener('click', () => els.file.click());
+  $('reverse-route').addEventListener('click', onReverse);
   setupDrop();
 
   refreshTexts();
+  renderRecent();
   loadFromLink();
+
+  registerPwa(cfg, '../sw.js', { installButton: $('install'), onInstalled: () => showMessage(t('installDone'), 'info') });
+  const connection = () => (navigator.onLine ? null : showMessage(t('offline'), true));
+  window.addEventListener('offline', connection);
+  window.addEventListener('online', () => showMessage(t('online'), 'info'));
+  connection();
 }
 
 function refreshTexts() {
   applyI18n();
+  state.startPicker?.refresh();
   $('credits').innerHTML = t('footer', {
     meteo: '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>',
     map: cfg.tileAttribution,
@@ -126,6 +148,7 @@ function refreshTexts() {
   updateEstimate();
   if (state.plan) renderPlan();
   if (state.best) renderBest();
+  renderRecent();
 }
 
 // --- Carga del GPX ---
@@ -163,9 +186,11 @@ async function loadFile(file) {
   } finally {
     els.file.value = '';
   }
+  state.reversed = false;
   // Una ruta nueva sustituye a la del enlace compartido.
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
+  rememberRoute();
 }
 
 /** Prepara la interfaz para la ruta de state.track (de un GPX o de un enlace). */
@@ -178,6 +203,7 @@ function showLoadedRoute() {
   $('share-run').disabled = false;
   $('share-status').hidden = true;
   $('share-link').hidden = true;
+  setExportReady(false);
   els.results.hidden = true;
   els.profile.hidden = true;
   profile.clear();
@@ -189,13 +215,214 @@ function showLoadedRoute() {
   els.submit.disabled = false;
   els.submitLabel.textContent = t('submit');
   updateEstimate();
+  renderRecent();
 }
 
 function showRouteInfo() {
-  $('route-name').textContent = state.routeName || t('unnamedRoute');
+  $('route-name').textContent = `${state.routeName || t('unnamedRoute')}${state.reversed ? ` ${t('reversedSuffix')}` : ''}`;
+  $('reverse-route').setAttribute('aria-pressed', String(state.reversed));
+  $('reverse-label').textContent = state.reversed ? t('reversed') : t('reverse');
   $('route-distance').innerHTML = `${f.km(state.track.total, 1)}<small>km</small>`;
   const ele = elevationStats(state.track);
   $('route-ascent').innerHTML = ele ? `${f.num(ele.gain)}<small>m</small>` : '–';
+}
+
+/** Da la vuelta a la ruta y, si ya había meteo calculada, la recalcula en el nuevo sentido. */
+function onReverse() {
+  if (!state.track || state.busy) return;
+  const hadPlan = Boolean(state.plan);
+  state.track = reverseTrack(state.track);
+  state.reversed = !state.reversed;
+  showLoadedRoute();
+  if (hadPlan) els.form.requestSubmit();
+}
+
+// --- Rutas recientes (localStorage) ---
+const loadRecent = () => sanitizeRecent(store.get('recent', []));
+
+/** Guarda la ruta actual (en su sentido original) al principio de las recientes. */
+async function rememberRoute() {
+  if (!state.track) return;
+  const track = state.reversed ? reverseTrack(state.track) : state.track;
+  state.routeId = routeId(state.routeName, track);
+  try {
+    const { hash } = await encodeShare(track, { name: state.routeName || '', hideMeters: 0, tolerance: 2, maxLength: 60_000 });
+    const ele = elevationStats(track);
+    const entry = { id: state.routeId, name: state.routeName || '', km: track.total / 1000, gain: ele ? ele.gain : null, savedAt: Date.now(), hash };
+    store.set('recent', addRecent(loadRecent(), entry));
+  } catch (err) {
+    console.warn('No se ha podido guardar la ruta reciente', err);
+  }
+  renderRecent();
+}
+
+function timeAgo(ms) {
+  const rtf = new Intl.RelativeTimeFormat(getLang() === 'en' ? 'en' : 'es', { numeric: 'auto' });
+  const min = Math.round((ms - Date.now()) / 60_000);
+  if (Math.abs(min) < 60) return rtf.format(min, 'minute');
+  const h = Math.round(min / 60);
+  if (Math.abs(h) < 24) return rtf.format(h, 'hour');
+  return rtf.format(Math.round(h / 24), 'day');
+}
+
+function renderRecent() {
+  const list = loadRecent().filter((r) => !state.track || r.id !== state.routeId);
+  const box = $('recent');
+  box.hidden = list.length === 0;
+  // Sin ruta cargada la lista se ve abierta; con una ruta cargada queda plegada para no confundirse con ella.
+  if (box.dataset.loaded !== String(Boolean(state.track))) {
+    box.open = !state.track;
+    box.dataset.loaded = String(Boolean(state.track));
+  }
+  $('recent-title').textContent = state.track ? t('recentOther') : t('recentTitle');
+  $('recent-count').textContent = list.length;
+  $('recent-list').innerHTML = list
+    .map((r) => {
+      const name = f.escapeHtml(r.name || t('unnamedRoute'));
+      const gain = Number.isFinite(r.gain) ? ` · ${f.num(r.gain)} m+` : '';
+      return `<li>
+        <button type="button" class="recent-item" data-open="${f.escapeHtml(r.id)}">
+          <span class="recent-name">${name}</span>
+          <span class="recent-meta">${f.num(r.km, 1)} km${gain} · ${timeAgo(r.savedAt)}</span>
+        </button>
+        <button type="button" class="recent-del" data-del="${f.escapeHtml(r.id)}" aria-label="${f.escapeHtml(t('recentRemove', { name: r.name || t('unnamedRoute') }))}" title="${f.escapeHtml(t('recentRemove', { name: r.name || t('unnamedRoute') }))}">×</button>
+      </li>`;
+    })
+    .join('');
+}
+
+async function onRecentClick(ev) {
+  const del = ev.target.closest('[data-del]');
+  if (del) {
+    store.set('recent', removeRecent(loadRecent(), del.dataset.del));
+    return renderRecent();
+  }
+  const open = ev.target.closest('[data-open]');
+  if (!open) return;
+  const entry = loadRecent().find((r) => r.id === open.dataset.open);
+  if (!entry) return renderRecent();
+  hideMessage();
+  try {
+    const route = await decodeShare(entry.hash);
+    state.track = buildTrack(route.points);
+    state.routeName = route.name || entry.name;
+    state.reversed = false;
+  } catch {
+    store.set('recent', removeRecent(loadRecent(), entry.id));
+    renderRecent();
+    return showMessage(t('err_share_bad_link'));
+  }
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  showLoadedRoute();
+  rememberRoute();
+}
+
+// --- Exportar ---
+function setExportReady(ready) {
+  $('export-image').disabled = !ready;
+  $('export-gpx').disabled = !ready;
+  $('export-preview').hidden = true;
+  $('export-status').textContent = ready ? t('exportReady') : t('exportNeedPlan');
+}
+
+function displayName() {
+  return `${state.routeName || t('unnamedRoute')}${state.reversed ? ` ${t('reversedSuffix')}` : ''}`;
+}
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+async function onExportImage() {
+  if (!state.plan) return;
+  const btn = $('export-image');
+  const status = $('export-status');
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  try {
+    const data = {
+      track: state.track,
+      plan: state.plan,
+      routeName: displayName(),
+      elevation: elevationStats(state.track),
+      tileTemplate: cfg.tileUrl,
+      siteLabel: location.host || 'GPX Weather Ride',
+      attribution: `${t('footer', { meteo: 'Open-Meteo', map: '© OpenStreetMap' })}`,
+    };
+    let { canvas, tilesOk } = await renderShareImage(data);
+    let blob;
+    try {
+      blob = await toBlob(canvas);
+    } catch {
+      blob = null; // el mapa de fondo no permite exportar (sin CORS): se repite sin teselas
+    }
+    if (!blob) {
+      ({ canvas } = await renderShareImage({ ...data, tileTemplate: null }));
+      blob = await toBlob(canvas);
+      tilesOk = 0;
+    }
+    const name = fileName(displayName(), 'png');
+    const file = new File([blob], name, { type: 'image/png' });
+    const preview = $('export-preview');
+    preview.src = URL.createObjectURL(blob);
+    preview.alt = displayName();
+    preview.hidden = false;
+    let msg;
+    if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: displayName() });
+        msg = t('exportImageShared');
+      } catch (err) {
+        if (err && err.name === 'AbortError') msg = t('exportReady');
+        else {
+          download(blob, name);
+          msg = t('exportImageDone');
+        }
+      }
+    } else {
+      download(blob, name);
+      msg = t('exportImageDone');
+    }
+    status.textContent = tilesOk ? msg : `${msg} ${t('exportNoTiles')}`;
+  } catch (err) {
+    console.error(err);
+    showMessage(t('err_generic', { detail: err.message }));
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+  }
+}
+
+function onExportGpx() {
+  if (!state.plan) return;
+  const names = { rain: t('alertRain'), gusts: t('alertGusts'), head: t('alertHead') };
+  const gpx = buildGpx({
+    track: state.track,
+    plan: state.plan,
+    name: displayName(),
+    label: (m, alerts) => {
+      const w = m.weather;
+      const name = `km ${f.kmMark(m.d)} ${f.time(m.time)}${alerts.length ? ' !' : ''}`;
+      if (!w) return { name, desc: t('unknown') };
+      const desc = t('wptDesc', {
+        temp: f.temp(w.temp),
+        wind: f.num(w.windSpeed),
+        rel: relLabel(m.rel, m.course, w.windDir).toLowerCase(),
+        gusts: f.num(w.gusts),
+        rain: f.num(w.precipProb),
+      });
+      return { name, desc: alerts.length ? `! ${alerts.map((a) => names[a]).join(', ')}. ${desc}` : desc };
+    },
+  });
+  download(new Blob([gpx], { type: 'application/gpx+xml' }), fileName(displayName(), 'gpx'));
+  $('export-status').textContent = t('exportGpxDone');
 }
 
 // --- Formulario ---
@@ -375,6 +602,7 @@ function renderPlan() {
   const hasEle = profile.show(track, plan);
   $('profile-note').hidden = hasEle;
   els.submitLabel.textContent = t('update');
+  setExportReady(true);
   if (state.best) renderBest();
   if (state.scrollToMap) {
     state.scrollToMap = false;
@@ -483,6 +711,7 @@ function renderBest() {
 /** Pone la hora elegida en el formulario y calcula su ruta con la meteo ya descargada. */
 async function useStart(startMs) {
   els.start.value = f.toLocalInput(startMs);
+  state.startPicker?.refresh();
   updateEstimate();
   state.scrollToMap = window.matchMedia('(max-width: 860px)').matches;
   els.form.requestSubmit();
@@ -541,6 +770,7 @@ async function loadFromLink() {
 
   state.track = buildTrack(shared.points);
   state.routeName = shared.name || t('unnamedRoute');
+  state.reversed = false;
   if (shared.sport) {
     els.form.sport.value = shared.sport;
     toggleSport(shared.sport);
@@ -551,7 +781,9 @@ async function loadFromLink() {
   }
   const past = !shared.startMs || shared.startMs < Date.now();
   els.start.value = f.toLocalInput(past ? Math.ceil(Date.now() / 3600_000) * 3600_000 : shared.startMs);
+  state.startPicker?.refresh();
   showLoadedRoute();
+  rememberRoute();
   els.form.requestSubmit();
   // El mensaje se muestra después de que onSubmit limpie los anteriores.
   setTimeout(() => {

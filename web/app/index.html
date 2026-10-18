@@ -9,6 +9,9 @@
   <meta name="theme-color" content="#1d2b36">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Weather Ride">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="GPX Weather Ride">
   <meta property="og:locale" content="es_ES">
@@ -36,6 +39,7 @@
       <header class="brand">
         <div class="brand-row">
           <h1 class="brand-name"><a href="../" id="app-name">GPX Weather Ride</a></h1>
+          <button type="button" class="install-btn" id="install" hidden data-i18n="install">Instalar</button>
           <label class="lang">
             <span class="visually-hidden" data-i18n="language"></span>
             <select id="lang"></select>
@@ -59,11 +63,24 @@
             <p class="route-name" id="route-name"></p>
             <button type="button" class="link-btn" id="change-route" data-i18n="changeRoute"></button>
           </div>
+          <button type="button" class="reverse-btn" id="reverse-route" aria-pressed="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h13a5 5 0 0 1 0 10h-3M17 20l4-4-4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="reverse-label" data-i18n="reverse">Recorrer en sentido contrario</span>
+          </button>
           <dl class="figures">
             <div><dt data-i18n="distance"></dt><dd id="route-distance"></dd></div>
             <div><dt data-i18n="ascent"></dt><dd id="route-ascent"></dd></div>
           </dl>
         </div>
+
+        <details class="recent" id="recent" hidden>
+          <summary class="recent-title">
+            <span id="recent-title" data-i18n="recentTitle">Rutas recientes</span>
+            <span class="recent-count" id="recent-count"></span>
+          </summary>
+          <p class="recent-note" data-i18n="recentNote">guardadas solo en este navegador</p>
+          <ul class="recent-list" id="recent-list"></ul>
+        </details>
       </section>
 
       <form class="block" id="plan-form" novalidate aria-labelledby="h-plan">
@@ -76,10 +93,10 @@
         </fieldset>
 
         <div class="fields">
-          <label class="field">
-            <span class="field-label" data-i18n="start"></span>
+          <div class="field" id="start-field">
+            <label class="field-label" for="start" data-i18n="start"></label>
             <input type="datetime-local" id="start" required step="300">
-          </label>
+          </div>
 
           <label class="field" id="speed-field">
             <span class="field-label" data-i18n="speed"></span>
@@ -150,6 +167,22 @@
             </button>
             <p class="share-status" id="share-status" aria-live="polite" hidden></p>
             <input type="text" class="share-link" id="share-link" readonly hidden aria-label="Enlace">
+          </section>
+
+          <section class="adv-block" aria-labelledby="h-export">
+            <h3 class="adv-title" id="h-export" data-i18n="exportTitle">Exportar</h3>
+            <p class="adv-hint" data-i18n="exportHint">Una imagen con el mapa, el perfil y las horas de paso para WhatsApp o Strava, o un GPX con la meteo en cada punto para tu GPS.</p>
+            <div class="export-actions">
+              <button type="button" class="secondary" id="export-image" disabled>
+                <span class="spinner" aria-hidden="true"></span>
+                <span data-i18n="exportImage">Crear imagen</span>
+              </button>
+              <button type="button" class="secondary" id="export-gpx" disabled>
+                <span data-i18n="exportGpx">GPX con avisos</span>
+              </button>
+            </div>
+            <p class="share-status" id="export-status" aria-live="polite" data-i18n="exportNeedPlan">Calcula primero la meteo de la ruta.</p>
+            <img class="export-preview" id="export-preview" alt="" hidden>
           </section>
         </details>
       </form>
