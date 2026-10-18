@@ -50,6 +50,11 @@ export function buildTrack(rawPoints) {
   return { points, total: d };
 }
 
+/** La misma ruta recorrida en sentido contrario (distancias recalculadas desde el nuevo inicio). */
+export function reverseTrack(track) {
+  return buildTrack(track.points.slice().reverse());
+}
+
 /** Índice del último punto con distancia <= d (búsqueda binaria). */
 function indexAt(points, d) {
   let lo = 0;
