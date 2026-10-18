@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { parseGpx, GpxError } from '../web/js/lib/gpx.js';
-import { angleDiff, bearing, bearingAround, buildTrack, distanceSteps, elevationStats, haversine, pointAt } from '../web/js/lib/geo.js';
+import { angleDiff, bearing, bearingAround, buildTrack, distanceSteps, elevationStats, haversine, pointAt, reverseTrack } from '../web/js/lib/geo.js';
 import { formatDuration, formatPace, makeClock, parsePace, paceToKmh } from '../web/js/lib/timing.js';
 import { compass, relativeWind, windSide, WIND } from '../web/js/lib/wind.js';
 import { buildForecastUrl, fetchForecast, weatherAt, toSeries, WeatherError } from '../web/js/lib/weather.js';
@@ -62,6 +62,18 @@ test('buildTrack acumula distancia, quita duplicados e interpola', () => {
   near(mid.d, 5000, 0.001);
   near(haversine(track.points[0], mid), 5000, 10);
   near(bearingAround(track, 5000), 90, 0.5);
+});
+
+test('reverseTrack invierte el sentido, conserva la distancia y el rumbo gira 180°', () => {
+  const pts = straightLine({ km: 10, bearingDeg: 90 }).map((p, i) => ({ ...p, ele: i }));
+  const track = buildTrack(pts);
+  const rev = reverseTrack(track);
+  near(rev.total, track.total, 1e-6);
+  assert.deepEqual([rev.points[0].lat, rev.points[0].lon], [pts.at(-1).lat, pts.at(-1).lon]);
+  assert.equal(rev.points[0].d, 0);
+  assert.equal(rev.points[0].ele, pts.at(-1).ele);
+  near(bearingAround(rev, 5000), 270, 0.5);
+  near(reverseTrack(rev).points.at(-1).d, track.total, 1e-6);
 });
 
 test('distanceSteps incluye el final y no deja un último tramo diminuto', () => {

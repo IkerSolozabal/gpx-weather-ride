@@ -71,12 +71,13 @@ export function configJs(cfg) {
 /** Content-Security-Policy como <meta>, porque GitHub Pages no permite cabeceras propias. */
 export function cspMeta(env) {
   const api = env.WEATHER_API_URL || 'https://api.open-meteo.com/v1/forecast';
-  const connect = ["'self'", new URL(api).origin, ...(env.CSP_EXTRA_CONNECT || '').split(/\s+/).filter(Boolean)].join(' ');
+  const tiles = (env.MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png').match(/^https?:\/\/[^/?#]+/)[0].replace('{s}', '*');
+  const connect = ["'self'", new URL(api).origin, tiles, ...(env.CSP_EXTRA_CONNECT || '').split(/\s+/).filter(Boolean)].join(' ');
   const policy = [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
+    "img-src 'self' data: blob: https:",
     "font-src 'self'",
     `connect-src ${connect}`,
     "base-uri 'self'",

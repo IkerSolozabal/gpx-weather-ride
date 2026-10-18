@@ -1,6 +1,7 @@
 // Portada: idioma, aviso de preproducción y créditos. La app vive en /app/.
 import { loadConfig } from './config.js';
 import { applyI18n, getLang, LANGS, setLang, t } from './i18n.js';
+import { registerPwa } from './pwa.js';
 
 const cfg = loadConfig();
 const $ = (id) => document.getElementById(id);
@@ -42,3 +43,4 @@ sel.addEventListener('change', () => {
 });
 
 render();
+registerPwa(cfg, 'sw.js');
