@@ -9,6 +9,7 @@ import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
 import { buildGpx, fileName } from './lib/gpx-export.js';
 import { renderShareImage, toBlob } from './ui/export-image.js';
+import { registerPwa } from './pwa.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -120,6 +121,12 @@ function init() {
   refreshTexts();
   renderRecent();
   loadFromLink();
+
+  registerPwa(cfg, '../sw.js', { installButton: $('install'), onInstalled: () => showMessage(t('installDone'), 'info') });
+  const connection = () => (navigator.onLine ? null : showMessage(t('offline'), true));
+  window.addEventListener('offline', connection);
+  window.addEventListener('online', () => showMessage(t('online'), 'info'));
+  connection();
 }
 
 function refreshTexts() {

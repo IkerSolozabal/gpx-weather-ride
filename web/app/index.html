@@ -9,6 +9,9 @@
   <meta name="theme-color" content="#1d2b36">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Weather Ride">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="GPX Weather Ride">
   <meta property="og:locale" content="es_ES">
@@ -36,6 +39,7 @@
       <header class="brand">
         <div class="brand-row">
           <h1 class="brand-name"><a href="../" id="app-name">GPX Weather Ride</a></h1>
+          <button type="button" class="install-btn" id="install" hidden data-i18n="install">Instalar</button>
           <label class="lang">
             <span class="visually-hidden" data-i18n="language"></span>
             <select id="lang"></select>
