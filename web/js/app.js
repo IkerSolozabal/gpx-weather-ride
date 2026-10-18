@@ -10,7 +10,7 @@ import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.j
 import { buildGpx, fileName } from './lib/gpx-export.js';
 import { renderShareImage, toBlob } from './ui/export-image.js';
 import { registerPwa } from './pwa.js';
-import { createStartPicker, wantsCustomPicker } from './ui/start-picker.js';
+import { createStartPicker } from './ui/start-picker.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -95,8 +95,11 @@ function init() {
   els.start.value = f.toLocalInput(nextHour);
   els.start.min = f.toLocalInput(now - DAY);
   els.start.max = f.toLocalInput(now + cfg.forecastDays * DAY);
-  // En el ordenador, días en botones y hora con − / +; en el móvil, el selector nativo.
-  state.startPicker = wantsCustomPicker() ? createStartPicker(els.start, $('start-field'), { days: cfg.forecastDays }) : null;
+  // Días en botones y hora en dos casillas (móvil y ordenador). Intro en los minutos salta a la velocidad o ritmo.
+  state.startPicker = createStartPicker(els.start, $('start-field'), {
+    days: cfg.forecastDays,
+    next: () => (els.speedField.hidden ? els.pace : els.speed),
+  });
 
   els.form.addEventListener('change', onFormChange);
   els.form.addEventListener('input', onFormChange);

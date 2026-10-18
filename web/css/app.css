@@ -190,20 +190,26 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .day-chip.is-on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 .day-top { font-size: 12px; line-height: 1.2; color: inherit; opacity: .75; text-transform: none; }
 .day-num { font: 600 21px/1 var(--font-figure); font-variant-numeric: tabular-nums; }
-.clock { display: grid; grid-template-columns: 40px 1fr 40px; height: 40px; max-width: 200px; }
+.clock { display: grid; grid-template-columns: 44px auto 44px; height: 44px; justify-content: start; }
 .clock-step {
   border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
-  font: 500 20px/1 var(--font-text); cursor: pointer;
+  font: 500 22px/1 var(--font-text); cursor: pointer; touch-action: manipulation;
 }
 .clock-step:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
 .clock-step:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
 .clock-step:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
-.start-picker .clock-input {
-  min-width: 0; width: auto; height: 40px; padding: 0 4px; border-radius: 0;
-  text-align: center; border: 1px solid var(--line-strong); border-inline: 0;
-  background: var(--surface); font: 600 21px/1 var(--font-figure); font-variant-numeric: tabular-nums;
+.clock-fields {
+  display: flex; align-items: center; padding: 0 6px;
+  border: 1px solid var(--line-strong); border-inline: 0; background: var(--surface);
 }
-.start-picker .clock-input:focus { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--focus) 45%, transparent); }
+.clock-fields:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--focus) 45%, transparent); }
+.start-picker .clock-fields input {
+  width: 2.1em; height: 34px; padding: 0; border: 0; border-radius: var(--r-sm);
+  background: none; text-align: center; caret-color: var(--focus);
+  font: 600 23px/1 var(--font-figure); font-variant-numeric: tabular-nums;
+}
+.start-picker .clock-fields input:focus { outline: none; box-shadow: none; background: color-mix(in srgb, var(--focus) 14%, transparent); }
+.clock-sep { font: 600 23px/1 var(--font-figure); padding: 0 1px 3px; }
 
 .estimate { color: var(--muted); font-size: 14px; min-height: 1.5em; }
 

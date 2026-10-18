@@ -1,24 +1,29 @@
 /**
- * Selector de salida para ordenador: botones de día y un campo de hora con − / +.
+ * Selector de salida (móvil y ordenador): botones de día y la hora en dos casillas,
+ * horas : minutos, con − / + de 15 minutos.
+ *
+ * - Al escribir la hora, con 2 cifras (o Intro) pasa sola a los minutos.
+ * - Intro en los minutos pasa al siguiente campo del formulario, como Tab.
+ * - ↑ ↓ cambian 1 hora en las horas y 5 minutos en los minutos.
+ * - En el móvil abre el teclado numérico.
+ *
  * El valor real sigue en el <input type="datetime-local"> original (oculto), así el
- * resto de la app no cambia. En pantallas táctiles no se usa: se queda el selector
- * nativo de Android/iOS, que allí es mejor.
+ * resto de la app no cambia.
  */
 
 import { t, getLang } from '../i18n.js';
-import { formatClock, nextDays, parseClock, stepClock } from '../lib/clock.js';
+import { nextDays, stepClock } from '../lib/clock.js';
 
 const STEP = 15;
-
-/** true en ordenadores con ratón (sin pantalla táctil como entrada principal). */
-export const wantsCustomPicker = () => window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+const pad = (n) => String(n).padStart(2, '0');
 
 /**
  * @param {HTMLInputElement} input  datetime-local original
  * @param {HTMLElement} field       contenedor del campo (se le añade la clase is-custom)
- * @param {{days: number}} opts     número de días seleccionables
+ * @param {{days: number, next?: () => HTMLElement|null}} opts
+ *   days: número de días seleccionables; next: campo al que saltar tras los minutos.
  */
-export function createStartPicker(input, field, { days = 16 } = {}) {
+export function createStartPicker(input, field, { days = 16, next } = {}) {
   field.classList.add('is-custom');
   input.hidden = true;
   input.tabIndex = -1;
@@ -29,21 +34,27 @@ export function createStartPicker(input, field, { days = 16 } = {}) {
     <div class="day-strip" role="radiogroup"></div>
     <div class="clock">
       <button type="button" class="clock-step" data-step="-${STEP}"><span aria-hidden="true">−</span></button>
-      <input type="text" class="clock-input" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="5">
+      <div class="clock-fields">
+        <input type="text" class="clock-h" inputmode="numeric" enterkeyhint="next" maxlength="2" autocomplete="off" spellcheck="false">
+        <span class="clock-sep" aria-hidden="true">:</span>
+        <input type="text" class="clock-m" inputmode="numeric" enterkeyhint="next" maxlength="2" autocomplete="off" spellcheck="false">
+      </div>
       <button type="button" class="clock-step" data-step="${STEP}"><span aria-hidden="true">+</span></button>
     </div>`;
   field.appendChild(box);
   const strip = box.querySelector('.day-strip');
-  const clock = box.querySelector('.clock-input');
+  const hh = box.querySelector('.clock-h');
+  const mm = box.querySelector('.clock-m');
 
   const read = () => {
     const [date = '', time = '00:00'] = (input.value || '').split('T');
-    return { date, minutes: parseClock(time) ?? 0 };
+    const [h, m] = time.split(':').map(Number);
+    return { date, h: Number.isFinite(h) ? h : 0, m: Number.isFinite(m) ? m : 0 };
   };
 
   /** Escribe en el input original y avisa al formulario como si lo hubiera cambiado el usuario. */
-  const write = (date, minutes) => {
-    input.value = `${date}T${formatClock(minutes)}`;
+  const write = (date, h, m) => {
+    input.value = `${date}T${pad(h)}:${pad(m)}`;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     render();
@@ -60,7 +71,7 @@ export function createStartPicker(input, field, { days = 16 } = {}) {
 
   let builtKey = '';
   function render() {
-    const { date, minutes } = read();
+    const { date, h, m } = read();
     const list = nextDays(Date.now(), days);
     if (date && !list.includes(date)) list.unshift(date); // p. ej. una salida compartida de ayer
     // Solo se reconstruyen los botones si cambian los días o el idioma; si no, se marca el elegido
@@ -71,8 +82,8 @@ export function createStartPicker(input, field, { days = 16 } = {}) {
       strip.innerHTML = list
         .map((iso) => {
           const l = dayLabel(iso);
-          return `<button type="button" class="day-chip" role="radio" data-date="${iso}" title="${l.full}">
-            <span class="day-top">${l.top}</span><span class="day-num">${l.num}</span></button>`;
+          return `<button type="button" class="day-chip" role="radio" data-date="${iso}" title="${l.full}" aria-label="${l.full}">
+            <span class="day-top" aria-hidden="true">${l.top}</span><span class="day-num" aria-hidden="true">${l.num}</span></button>`;
         })
         .join('');
     }
@@ -82,69 +93,144 @@ export function createStartPicker(input, field, { days = 16 } = {}) {
       chip.setAttribute('aria-checked', String(on));
       chip.tabIndex = on ? 0 : -1;
     }
-    if (document.activeElement !== clock) clock.value = formatClock(minutes);
+    if (document.activeElement !== hh) hh.value = pad(h);
+    if (document.activeElement !== mm) mm.value = pad(m);
     box.querySelector('[data-step^="-"]').setAttribute('aria-label', t('timeEarlier'));
     box.querySelector('[data-step]:not([data-step^="-"])').setAttribute('aria-label', t('timeLater'));
-    clock.setAttribute('aria-label', t('startTime'));
+    hh.setAttribute('aria-label', t('startHours'));
+    mm.setAttribute('aria-label', t('startMinutes'));
     strip.setAttribute('aria-label', t('startDay'));
     const on = strip.querySelector('.is-on');
     if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
+  // --- Días ---
   strip.addEventListener('click', (ev) => {
     const chip = ev.target.closest('.day-chip');
-    if (chip) write(chip.dataset.date, read().minutes);
+    if (!chip) return;
+    const { h, m } = read();
+    write(chip.dataset.date, h, m);
   });
-  // Flechas izquierda/derecha para moverse entre días (patrón de radiogroup).
   strip.addEventListener('keydown', (ev) => {
     if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
     const chips = [...strip.querySelectorAll('.day-chip')];
     const i = chips.findIndex((c) => c.classList.contains('is-on'));
-    const next = chips[Math.max(0, Math.min(chips.length - 1, i + (ev.key === 'ArrowRight' ? 1 : -1)))];
-    if (!next) return;
+    const target = chips[Math.max(0, Math.min(chips.length - 1, i + (ev.key === 'ArrowRight' ? 1 : -1)))];
+    if (!target) return;
     ev.preventDefault();
-    write(next.dataset.date, read().minutes);
+    const { h, m } = read();
+    write(target.dataset.date, h, m);
     strip.querySelector('.is-on')?.focus();
   });
   // Rueda del ratón sobre la tira de días: desplazamiento horizontal.
-  strip.addEventListener('wheel', (ev) => {
-    if (Math.abs(ev.deltaY) > Math.abs(ev.deltaX)) {
-      strip.scrollLeft += ev.deltaY;
-      ev.preventDefault();
-    }
-  }, { passive: false });
+  strip.addEventListener(
+    'wheel',
+    (ev) => {
+      if (Math.abs(ev.deltaY) > Math.abs(ev.deltaX)) {
+        strip.scrollLeft += ev.deltaY;
+        ev.preventDefault();
+      }
+    },
+    { passive: false },
+  );
 
+  // --- Hora ---
   box.addEventListener('click', (ev) => {
     const btn = ev.target.closest('.clock-step');
     if (!btn) return;
-    const { date, minutes } = read();
-    write(date, stepClock(minutes, Number(btn.dataset.step)));
+    const { date, h, m } = read();
+    const minutes = stepClock(h * 60 + m, Number(btn.dataset.step));
+    write(date, Math.floor(minutes / 60), minutes % 60);
   });
 
-  const commit = () => {
-    const minutes = parseClock(clock.value);
-    const current = read();
-    if (minutes === null || minutes === current.minutes) {
-      clock.value = formatClock(current.minutes);
+  /** Guarda lo escrito en una casilla; si no es válido, vuelve al valor anterior. */
+  function commit(which) {
+    const el = which === 'h' ? hh : mm;
+    const max = which === 'h' ? 23 : 59;
+    const cur = read();
+    const n = el.value.trim() === '' ? NaN : Number(el.value);
+    if (!Number.isInteger(n) || n < 0 || n > max) {
+      el.value = pad(which === 'h' ? cur.h : cur.m);
       return;
     }
-    write(current.date, minutes);
+    el.value = pad(n);
+    if ((which === 'h' ? cur.h : cur.m) !== n) write(cur.date, which === 'h' ? n : cur.h, which === 'm' ? n : cur.m);
+  }
+
+  const focusMinutes = () => {
+    mm.focus();
+    mm.select();
   };
-  clock.addEventListener('keydown', (ev) => {
-    if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
-      ev.preventDefault();
-      const { date, minutes } = read();
-      write(date, stepClock(minutes, ev.key === 'ArrowUp' ? STEP : -STEP));
-      clock.value = formatClock(read().minutes);
-      clock.select();
-    } else if (ev.key === 'Enter') {
-      ev.preventDefault();
-      commit();
-      clock.select();
+  const focusNext = () => {
+    const el = next && next();
+    if (el) {
+      el.focus();
+      if (el.select) el.select();
+    } else mm.blur();
+  };
+
+  for (const el of [hh, mm]) {
+    el.addEventListener('focus', () => el.select());
+    // Solo cifras.
+    el.addEventListener('beforeinput', (ev) => {
+      if (ev.data && /\D/.test(ev.data)) ev.preventDefault();
+    });
+  }
+
+  hh.addEventListener('input', () => {
+    hh.value = hh.value.replace(/\D/g, '').slice(0, 2);
+    // 2 cifras, o una que no puede empezar una hora de dos (3–9): a los minutos.
+    if (hh.value.length === 2 || /^[3-9]$/.test(hh.value)) {
+      commit('h');
+      focusMinutes();
     }
   });
-  clock.addEventListener('focus', () => clock.select());
-  clock.addEventListener('blur', commit);
+  hh.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ':' || ev.key === '.') {
+      ev.preventDefault();
+      commit('h');
+      focusMinutes();
+    } else if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      const { date, h, m } = read();
+      const nh = (h + (ev.key === 'ArrowUp' ? 1 : 23)) % 24;
+      write(date, nh, m);
+      hh.value = pad(nh);
+      hh.select();
+    } else if (ev.key === 'ArrowRight' && hh.selectionStart === hh.value.length) {
+      ev.preventDefault();
+      focusMinutes();
+    }
+  });
+  hh.addEventListener('blur', () => commit('h'));
+
+  mm.addEventListener('input', () => {
+    mm.value = mm.value.replace(/\D/g, '').slice(0, 2);
+    if (mm.value.length === 2) commit('m');
+  });
+  mm.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      commit('m');
+      focusNext();
+    } else if (ev.key === 'Backspace' && mm.value === '') {
+      ev.preventDefault();
+      hh.focus();
+      hh.select();
+    } else if (ev.key === 'ArrowLeft' && mm.selectionStart === 0) {
+      ev.preventDefault();
+      hh.focus();
+      hh.select();
+    } else if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      const { date, h, m } = read();
+      const minutes = stepClock(h * 60 + m, ev.key === 'ArrowUp' ? 5 : -5);
+      write(date, Math.floor(minutes / 60), minutes % 60);
+      mm.value = pad(minutes % 60);
+      mm.select();
+    }
+  });
+  mm.addEventListener('blur', () => commit('m'));
 
   render();
   return { refresh: render };
