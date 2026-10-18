@@ -260,7 +260,15 @@ function timeAgo(ms) {
 
 function renderRecent() {
   const list = loadRecent().filter((r) => !state.track || r.id !== state.routeId);
-  $('recent').hidden = list.length === 0;
+  const box = $('recent');
+  box.hidden = list.length === 0;
+  // Sin ruta cargada la lista se ve abierta; con una ruta cargada queda plegada para no confundirse con ella.
+  if (box.dataset.loaded !== String(Boolean(state.track))) {
+    box.open = !state.track;
+    box.dataset.loaded = String(Boolean(state.track));
+  }
+  $('recent-title').textContent = state.track ? t('recentOther') : t('recentTitle');
+  $('recent-count').textContent = list.length;
   $('recent-list').innerHTML = list
     .map((r) => {
       const name = f.escapeHtml(r.name || t('unnamedRoute'));

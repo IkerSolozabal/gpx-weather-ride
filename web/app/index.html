@@ -73,13 +73,14 @@
           </dl>
         </div>
 
-        <div class="recent" id="recent" hidden>
-          <p class="recent-title">
-            <span data-i18n="recentTitle">Rutas recientes</span>
-            <span class="recent-note" data-i18n="recentNote">guardadas solo en este navegador</span>
-          </p>
+        <details class="recent" id="recent" hidden>
+          <summary class="recent-title">
+            <span id="recent-title" data-i18n="recentTitle">Rutas recientes</span>
+            <span class="recent-count" id="recent-count"></span>
+          </summary>
+          <p class="recent-note" data-i18n="recentNote">guardadas solo en este navegador</p>
           <ul class="recent-list" id="recent-list"></ul>
-        </div>
+        </details>
       </section>
 
       <form class="block" id="plan-form" novalidate aria-labelledby="h-plan">
