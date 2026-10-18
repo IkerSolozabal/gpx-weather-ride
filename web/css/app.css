@@ -74,6 +74,14 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 }
 .link-btn:hover { color: var(--ink); }
 
+.reverse-btn {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 10px;
+  padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  background: none; cursor: pointer; font-size: 14px; color: var(--ink);
+}
+.reverse-btn:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.reverse-btn[aria-pressed='true'] { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+
 /* Cifras */
 .figures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 16px; margin-top: 10px; }
 .figures-4 { grid-template-columns: repeat(2, 1fr); margin-top: 0; }

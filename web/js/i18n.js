@@ -142,6 +142,9 @@ const STRINGS = {
     shareLoadedPast: 'Ruta compartida: «{name}». La salida original ya pasó; se ha puesto la próxima hora.',
     err_share_bad_link: 'El enlace de la ruta está incompleto o dañado. Pide que te lo vuelvan a enviar.',
     err_share_too_long: 'La ruta es demasiado larga para un enlace.',
+    reverse: 'Recorrer en sentido contrario',
+    reversed: 'Sentido contrario',
+    reversedSuffix: '(sentido contrario)',
     warnMissing: 'Parte de la ruta queda fuera del pronóstico disponible y aparece sin datos.',
   },
   en: {
@@ -284,6 +287,9 @@ const STRINGS = {
     shareLoadedPast: 'Shared route: “{name}”. The original start time has passed; it is set to the next hour.',
     err_share_bad_link: 'The route link is incomplete or damaged. Ask for it to be sent again.',
     err_share_too_long: 'The route is too long for a link.',
+    reverse: 'Ride it the other way',
+    reversed: 'Reversed',
+    reversedSuffix: '(reversed)',
     warnMissing: 'Part of the route falls outside the available forecast and shows no data.',
   },
 };

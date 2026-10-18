@@ -36,6 +36,10 @@ Las dos comparten idioma (se guarda en el navegador), estilos base y configuraci
 
 Los umbrales se cambian con variables de entorno.
 
+## Recorrer en sentido contrario
+
+Debajo del nombre de la ruta, el botón **Recorrer en sentido contrario** le da la vuelta al recorrido. Si ya habías calculado la meteo, se recalcula en el nuevo sentido, así que basta con pulsarlo para comparar en qué sentido tienes más viento a favor. Vuelve a pulsarlo para el sentido original.
+
 ## Más opciones
 
 La app tiene un desplegable **Más opciones**, cerrado por defecto, con funciones para quien las quiera sin complicar el uso normal.

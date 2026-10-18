@@ -1,7 +1,7 @@
 import { loadConfig } from './config.js';
 import { applyI18n, getLang, LANGS, setLang, t, weatherLabel } from './i18n.js';
 import { parseGpx, GpxError } from './lib/gpx.js';
-import { bearingAround, buildTrack, elevationStats, pointAt } from './lib/geo.js';
+import { bearingAround, buildTrack, elevationStats, pointAt, reverseTrack } from './lib/geo.js';
 import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
 import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
 import { rankStarts } from './lib/beststart.js';
@@ -38,7 +38,7 @@ const store = {
 
 // cache: series de Open-Meteo de la ruta actual para una franja de tiempo, reutilizables
 // al cambiar la hora de salida o al comparar horas.
-const state = { track: null, routeName: null, plan: null, busy: false, cache: null, best: null };
+const state = { track: null, routeName: null, plan: null, busy: false, cache: null, best: null, reversed: false };
 
 const els = {
   form: $('plan-form'),
@@ -108,6 +108,7 @@ function init() {
   });
   window.addEventListener('hashchange', loadFromLink);
   $('change-route').addEventListener('click', () => els.file.click());
+  $('reverse-route').addEventListener('click', onReverse);
   setupDrop();
 
   refreshTexts();
@@ -163,6 +164,7 @@ async function loadFile(file) {
   } finally {
     els.file.value = '';
   }
+  state.reversed = false;
   // Una ruta nueva sustituye a la del enlace compartido.
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
@@ -192,10 +194,22 @@ function showLoadedRoute() {
 }
 
 function showRouteInfo() {
-  $('route-name').textContent = state.routeName || t('unnamedRoute');
+  $('route-name').textContent = `${state.routeName || t('unnamedRoute')}${state.reversed ? ` ${t('reversedSuffix')}` : ''}`;
+  $('reverse-route').setAttribute('aria-pressed', String(state.reversed));
+  $('reverse-label').textContent = state.reversed ? t('reversed') : t('reverse');
   $('route-distance').innerHTML = `${f.km(state.track.total, 1)}<small>km</small>`;
   const ele = elevationStats(state.track);
   $('route-ascent').innerHTML = ele ? `${f.num(ele.gain)}<small>m</small>` : '–';
+}
+
+/** Da la vuelta a la ruta y, si ya había meteo calculada, la recalcula en el nuevo sentido. */
+function onReverse() {
+  if (!state.track || state.busy) return;
+  const hadPlan = Boolean(state.plan);
+  state.track = reverseTrack(state.track);
+  state.reversed = !state.reversed;
+  showLoadedRoute();
+  if (hadPlan) els.form.requestSubmit();
 }
 
 // --- Formulario ---
@@ -541,6 +555,7 @@ async function loadFromLink() {
 
   state.track = buildTrack(shared.points);
   state.routeName = shared.name || t('unnamedRoute');
+  state.reversed = false;
   if (shared.sport) {
     els.form.sport.value = shared.sport;
     toggleSport(shared.sport);
