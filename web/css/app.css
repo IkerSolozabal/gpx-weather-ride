@@ -173,6 +173,38 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .input-unit input { padding-right: 62px; }
 .input-unit > span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; pointer-events: none; }
 
+/* Selector de salida en ordenador: días en botones y hora con − / + */
+#start-field.is-custom { grid-column: 1 / -1; }
+.start-picker { display: grid; gap: 8px; }
+.day-strip {
+  display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity;
+  padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: thin;
+}
+.day-chip {
+  flex: none; width: 54px; padding: 6px 0 7px; scroll-snap-align: start;
+  display: grid; justify-items: center; gap: 1px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.day-chip:hover { border-color: var(--ink); }
+.day-chip.is-on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.day-top { font-size: 12px; line-height: 1.2; color: inherit; opacity: .75; text-transform: none; }
+.day-num { font: 600 21px/1 var(--font-figure); font-variant-numeric: tabular-nums; }
+.clock { display: grid; grid-template-columns: 40px 1fr 40px; height: 40px; max-width: 200px; }
+.clock-step {
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  font: 500 20px/1 var(--font-text); cursor: pointer;
+}
+.clock-step:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.clock-step:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.clock-step:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.start-picker .clock-input {
+  min-width: 0; width: auto; height: 40px; padding: 0 4px; border-radius: 0;
+  text-align: center; border: 1px solid var(--line-strong); border-inline: 0;
+  background: var(--surface); font: 600 21px/1 var(--font-figure); font-variant-numeric: tabular-nums;
+}
+.start-picker .clock-input:focus { outline: none; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--focus) 45%, transparent); }
+
 .estimate { color: var(--muted); font-size: 14px; min-height: 1.5em; }
 
 .primary {

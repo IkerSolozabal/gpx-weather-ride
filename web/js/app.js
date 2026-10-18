@@ -10,6 +10,7 @@ import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.j
 import { buildGpx, fileName } from './lib/gpx-export.js';
 import { renderShareImage, toBlob } from './ui/export-image.js';
 import { registerPwa } from './pwa.js';
+import { createStartPicker, wantsCustomPicker } from './ui/start-picker.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
@@ -94,6 +95,8 @@ function init() {
   els.start.value = f.toLocalInput(nextHour);
   els.start.min = f.toLocalInput(now - DAY);
   els.start.max = f.toLocalInput(now + cfg.forecastDays * DAY);
+  // En el ordenador, días en botones y hora con − / +; en el móvil, el selector nativo.
+  state.startPicker = wantsCustomPicker() ? createStartPicker(els.start, $('start-field'), { days: cfg.forecastDays }) : null;
 
   els.form.addEventListener('change', onFormChange);
   els.form.addEventListener('input', onFormChange);
@@ -131,6 +134,7 @@ function init() {
 
 function refreshTexts() {
   applyI18n();
+  state.startPicker?.refresh();
   $('credits').innerHTML = t('footer', {
     meteo: '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>',
     map: cfg.tileAttribution,
@@ -704,6 +708,7 @@ function renderBest() {
 /** Pone la hora elegida en el formulario y calcula su ruta con la meteo ya descargada. */
 async function useStart(startMs) {
   els.start.value = f.toLocalInput(startMs);
+  state.startPicker?.refresh();
   updateEstimate();
   state.scrollToMap = window.matchMedia('(max-width: 860px)').matches;
   els.form.requestSubmit();
@@ -773,6 +778,7 @@ async function loadFromLink() {
   }
   const past = !shared.startMs || shared.startMs < Date.now();
   els.start.value = f.toLocalInput(past ? Math.ceil(Date.now() / 3600_000) * 3600_000 : shared.startMs);
+  state.startPicker?.refresh();
   showLoadedRoute();
   rememberRoute();
   els.form.requestSubmit();

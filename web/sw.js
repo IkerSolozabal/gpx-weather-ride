@@ -56,6 +56,7 @@ const PRECACHE = [
   './js/ui/format.js',
   './js/ui/map.js',
   './js/ui/profile.js',
+  './js/ui/start-picker.js',
   './vendor/leaflet/leaflet.js',
   './vendor/leaflet/leaflet.css',
   './vendor/leaflet/images/layers.png',
