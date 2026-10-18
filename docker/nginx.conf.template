@@ -28,6 +28,11 @@ server {
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
     add_header X-Robots-Tag "${ROBOTS_HEADER}" always;
 
+    location = /manifest.webmanifest {
+        default_type application/manifest+json;
+        expires -1;
+    }
+
     location = /healthz {
         default_type text/plain;
         return 200 "ok\n";

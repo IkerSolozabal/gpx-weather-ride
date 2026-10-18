@@ -7,7 +7,10 @@
 
 # Origen de la API de meteo para la Content-Security-Policy (https://host[:puerto]).
 WEATHER_ORIGIN=$(printf '%s' "$WEATHER_API_URL" | sed -E 's#^(https?://[^/?#]+).*#\1#')
-export CSP_CONNECT_SRC="'self' ${WEATHER_ORIGIN}${CSP_EXTRA_CONNECT:+ $CSP_EXTRA_CONNECT}"
+# Origen de las teselas del mapa ({s}. → *.): el service worker las guarda para usarlas sin conexión.
+: "${MAP_TILE_URL:=https://tile.openstreetmap.org/{z}/{x}/{y}.png}"
+TILE_ORIGIN=$(printf '%s' "$MAP_TILE_URL" | sed -E -e 's#^(https?://[^/?#]+).*#\1#' -e 's#\{s\}#*#')
+export CSP_CONNECT_SRC="'self' ${WEATHER_ORIGIN} ${TILE_ORIGIN}${CSP_EXTRA_CONNECT:+ $CSP_EXTRA_CONNECT}"
 
 # Indexación: por defecto solo en producción.
 if [ -z "${ROBOTS_INDEX:-}" ]; then
