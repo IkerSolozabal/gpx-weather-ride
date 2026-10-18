@@ -71,8 +71,16 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .drop-hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
 
+/* Ruta cargada: tarjeta con borde a la izquierda para distinguirla de la lista de recientes */
+.route {
+  padding: 14px 16px 16px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--paper) 65%, var(--surface));
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink);
+}
 .route-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.route-name { font-weight: 600; overflow-wrap: anywhere; }
+.route-name { font: 600 23px/1.15 var(--font-figure); letter-spacing: -0.005em; overflow-wrap: anywhere; }
 .link-btn {
   background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap;
   color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-size: 14px;
@@ -88,17 +96,34 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .reverse-btn[aria-pressed='true'] { border-color: var(--ink); background: var(--ink); color: var(--surface); }
 
 /* Rutas recientes */
-.recent { display: grid; gap: 6px; }
-.recent-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 14px; font-weight: 500; }
-.recent-note { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.recent { border-top: 1px solid var(--line); padding-top: 10px; }
+.recent > summary { list-style: none; }
+.recent > summary::-webkit-details-marker { display: none; }
+.recent > summary::marker { content: ''; }
+.recent-title {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 14px; font-weight: 500; color: var(--muted);
+}
+.recent-title::after {
+  content: ''; width: 7px; height: 7px; margin-left: auto; flex: none;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg); transition: transform .15s;
+}
+.recent[open] > .recent-title::after { transform: translateY(2px) rotate(-135deg); }
+.recent-title:hover, .recent[open] > .recent-title { color: var(--ink); }
+.recent-count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--line); color: var(--ink); font: 600 13px/20px var(--font-figure); text-align: center;
+}
+.recent-note { font-size: 12.5px; color: var(--muted); margin: 4px 0 4px; }
 .recent-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
 .recent-list li { display: flex; align-items: stretch; gap: 2px; }
 .recent-item {
   flex: 1; min-width: 0; display: grid; gap: 1px; text-align: left; cursor: pointer;
-  padding: 7px 10px; border: 0; border-radius: var(--r-sm); background: none;
+  padding: 6px 8px; border: 0; border-radius: var(--r-sm); background: none;
 }
 .recent-item:hover, .recent-del:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
-.recent-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-name { font-size: 14px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recent-meta { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .recent-del {
   flex: none; width: 34px; border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
