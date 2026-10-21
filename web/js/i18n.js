@@ -416,6 +416,23 @@ let current = 'es';
  */
 export const NEWS = [
   {
+    id: '2026-10-22',
+    es: [
+      'Las horas de paso tienen en cuenta la pendiente: según tu media y el desnivel, calcula tu nivel y cuánto tardas en cada subida y bajada.',
+      'Un resumen en una línea encima de los resultados: frío o calor, viento, lluvia y si te pilla la noche.',
+      'Paradas: añade el tiempo del café en «Más opciones».',
+      '«Mejor hora de salida» puede comparar también los próximos días.',
+      'En el ordenador, con la app instalada, abre un .gpx con doble clic.',
+    ],
+    en: [
+      'Passing times take the slope into account: from your average and the climbing, it works out your level and how long each climb and descent takes.',
+      'A one-line summary above the results: cold or heat, wind, rain and whether night catches you.',
+      'Stops: add your coffee break under “More options”.',
+      '“Best start time” can also compare the next few days.',
+      'On the computer, with the app installed, open a .gpx with a double click.',
+    ],
+  },
+  {
     id: '2026-10-21',
     es: [
       'En Android, con la app instalada, comparte el GPX desde Strava, Garmin Connect o Komoot y se abre directamente aquí.',
