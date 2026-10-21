@@ -72,14 +72,14 @@ Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una
 
 | Factor | Cómo se mide | Vale 1 cuando… |
 | --- | --- | --- |
-| Viento | Componente media del viento en contra a lo largo de la ruta (a favor resta) | 15 km/h de media en contra |
+| Viento | Viento de cara medio a lo largo de la ruta. El viento a favor resta solo una quinta parte: desempata, pero no compensa el de cara | 15 km/h de media en contra |
 | Lluvia | Probabilidad media de lluvia | 40 % |
 | Temperatura | Grados de sensación térmica fuera de `TEMP_COMFORT_MIN`–`TEMP_COMFORT_MAX` | 8 °C fuera del rango |
 | Noche | Parte de la ruta antes del amanecer o después del anochecer | La mitad de la ruta |
 
 Con **Comparar la misma franja en los próximos días** se repite la franja cada día hasta donde llega el pronóstico (como mucho una semana) y se muestra la mejor salida de cada día, con el mejor día marcado. Viene bien para escoger día en una salida larga o un viaje en bici.
 
-El selector «Qué evitar sobre todo» multiplica por 3 el peso del factor elegido (viento, lluvia o temperatura); «Un poco de todo» los pesa igual. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
+Con «Qué evitar sobre todo» el factor elegido (viento, lluvia o temperatura) pesa 3 y los otros dos 0,5; «Un poco de todo» los pesa igual. La noche pesa siempre 1. Así, con «Viento en contra», una salida con 0 % en contra gana a otra con 30 % en contra aunque esta tenga mucho viento a favor el resto del camino. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
 
 ### Compartir ruta
 

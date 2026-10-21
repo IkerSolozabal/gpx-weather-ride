@@ -75,10 +75,12 @@ test('sin pronóstico para la franja, la salida queda sin puntuar', async () => 
   assert.equal(list.some((c) => c.best), false);
 });
 
-test('scoreMetrics: el viento a favor bonifica y los pesos cambian el orden', () => {
-  const base = { headKmh: 0, rainAvg: 0, tempPenalty: 0, darkShare: 0 };
-  assert.ok(scoreMetrics({ ...base, headKmh: -10 }) < scoreMetrics(base));
-  const windy = { ...base, headKmh: 15 };
+test('scoreMetrics: el viento a favor solo desempata y los pesos cambian el orden', () => {
+  const base = { headPos: 0, tailPos: 0, rainAvg: 0, tempPenalty: 0, darkShare: 0 };
+  assert.ok(scoreMetrics({ ...base, tailPos: 10 }) < scoreMetrics(base));
+  // 6 km/h de cara y 14 a favor (30 % / 70 %) sigue siendo peor que nada en contra.
+  assert.ok(scoreMetrics({ ...base, headPos: 6, tailPos: 14 }, PRIORITIES.wind) > scoreMetrics(base, PRIORITIES.wind));
+  const windy = { ...base, headPos: 15 };
   const wet = { ...base, rainAvg: 60 };
   assert.ok(scoreMetrics(windy, PRIORITIES.wind) > scoreMetrics(wet, PRIORITIES.wind));
   assert.ok(scoreMetrics(windy, PRIORITIES.rain) < scoreMetrics(wet, PRIORITIES.rain));
@@ -107,4 +109,23 @@ test('de madrugada cuenta el amanecer del mismo día, no el del anterior', async
   assert.equal(sunTimes(s, at(24 + 5)).sunrise, at(24 + 7));
   assert.equal(sunTimes(s, at(23)).sunset, at(18));
   assert.equal(isDaylight(s, at(24 + 7.5)), true);
+});
+
+test('con prioridad viento gana 0 % en contra aunque otra hora tenga mucho viento a favor', async () => {
+  // 21 km al norte y 9 de vuelta al sur. Hasta las 11 UTC viento del sur (30 % en contra, 70 % a favor);
+  // desde las 11, del este (lateral en toda la ruta, 0 % en contra).
+  const out = straightLine({ km: 21, bearingDeg: 0 });
+  const track = buildTrack([...out, ...out.slice(-91).reverse().slice(1)]);
+  const data = await fetchSeries(
+    track,
+    { sampleKm: 2, fromMs: at(5), toMs: at(16), weather: { baseUrl: 'https://x/v1/forecast' } },
+    fakeFetch((s, h) => fakeLocation(s, h, { windDir: (i) => (i % 24 < 11 ? 180 : 90), windSpeed: 25, precipProb: 0 })),
+  );
+  const list = rankStarts({ track, ...data, speedKmh: 30, fromMs: at(8), toMs: at(12), priority: 'wind' });
+  const early = list.find((c) => c.startMs === at(8));
+  assert.ok(early.headShare > 0.25 && early.tailShare > 0.6, 'a las 8: 30 % contra, 70 % favor');
+  const calm = list.find((c) => c.startMs === at(11));
+  assert.equal(calm.headShare, 0);
+  assert.ok(calm.score < early.score, `0 % en contra (${calm.score.toFixed(2)}) debe ganar a 30 % (${early.score.toFixed(2)})`);
+  assert.ok(list.find((c) => c.best).headShare < 0.05);
 });

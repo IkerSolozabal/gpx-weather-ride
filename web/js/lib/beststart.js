@@ -10,12 +10,15 @@ import { isDaylight, weatherAt } from './weather.js';
 import { relativeWind, WIND } from './wind.js';
 import { nearestSample } from './plan.js';
 
-/** Pesos de cada factor según la prioridad elegida por el usuario. */
+/**
+ * Pesos de cada factor según la prioridad elegida por el usuario: el elegido pesa 3
+ * y los demás 0,5. La noche pesa siempre 1, porque obliga a llevar luces.
+ */
 export const PRIORITIES = Object.freeze({
   balanced: { wind: 1, rain: 1, temp: 1, dark: 1 },
-  wind: { wind: 3, rain: 1, temp: 0.5, dark: 1 },
-  rain: { wind: 1, rain: 3, temp: 0.5, dark: 1 },
-  temp: { wind: 1, rain: 1, temp: 3, dark: 1 },
+  wind: { wind: 3, rain: 0.5, temp: 0.5, dark: 1 },
+  rain: { wind: 0.5, rain: 3, temp: 0.5, dark: 1 },
+  temp: { wind: 0.5, rain: 0.5, temp: 3, dark: 1 },
 });
 
 /** Salidas a probar entre fromMs y toMs (incluidas), cada stepMin minutos. */
@@ -42,13 +45,17 @@ export function evaluationPoints(track, samples, { evalM = 500, courseWindow = 2
 /**
  * Métricas de una salida concreta. Con `opts.pace` (lib/pacing.js) las horas de paso
  * tienen en cuenta la pendiente y las paradas; sin él, velocidad constante.
- * @returns {{startMs, endMs, headKmh, headShare, tailShare, rainAvg, rainMax, tempMin, tempMax, tempPenalty, darkShare, missing}}
+ * headKmh: viento medio de cara (a favor resta). headPos y tailPos: media solo de la parte
+ * en contra y solo de la parte a favor, en km/h.
+ * @returns {{startMs, endMs, headKmh, headPos, tailPos, headShare, tailShare, rainAvg, rainMax, tempMin, tempMax, tempPenalty, darkShare, missing}}
  */
 export function evaluateStart(points, series, startMs, speedKmh, opts = {}) {
   const { wind: windOpts = {}, comfortMin = 10, comfortMax = 25, pace } = opts;
   const clock = pace ? (d) => startMs + pace.offset(d) : makeClock(startMs, speedKmh);
   let total = 0;
   let head = 0;
+  let headPos = 0;
+  let tailPos = 0;
   let headLen = 0;
   let tailLen = 0;
   let rain = 0;
@@ -72,6 +79,8 @@ export function evaluateStart(points, series, startMs, speedKmh, opts = {}) {
     total += p.len;
     const rel = relativeWind(p.course, w.windDir, w.windSpeed, windOpts);
     head += rel.head * p.len; // positivo en contra, negativo a favor
+    if (rel.head > 0) headPos += rel.head * p.len;
+    else tailPos -= rel.head * p.len;
     if (rel.category === WIND.HEAD) headLen += p.len;
     if (rel.category === WIND.TAIL) tailLen += p.len;
     const prob = Number.isFinite(w.precipProb) ? w.precipProb : 0;
@@ -91,6 +100,8 @@ export function evaluateStart(points, series, startMs, speedKmh, opts = {}) {
     startMs,
     endMs,
     headKmh: head / n,
+    headPos: headPos / n,
+    tailPos: tailPos / n,
     headShare: headLen / n,
     tailShare: tailLen / n,
     rainAvg: rain / n,
@@ -107,9 +118,12 @@ export function evaluateStart(points, series, startMs, speedKmh, opts = {}) {
  * Penalización total (más baja = mejor). Escalas pensadas para que cada factor
  * valga ~1 en un caso "claramente malo": 15 km/h de media en contra, 40 % de
  * probabilidad de lluvia, 8 °C fuera del rango cómodo o la mitad de la ruta de noche.
+ *
+ * El viento penaliza el viento en contra; el viento a favor solo resta una quinta parte,
+ * para desempatar sin compensar el de cara (30 % en contra y 70 % a favor no gana a 0 % en contra).
  */
 export function scoreMetrics(m, weights = PRIORITIES.balanced) {
-  const wind = m.headKmh / 15; // negativo si de media sopla a favor: bonifica
+  const wind = (m.headPos - 0.2 * m.tailPos) / 15
   const rain = m.rainAvg / 40;
   const temp = m.tempPenalty / 8;
   const dark = m.darkShare * 2;
