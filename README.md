@@ -26,7 +26,7 @@ Las dos comparten idioma (se guarda en el navegador), estilos base y configuraci
 ## Cómo funciona
 
 1. Se leen los puntos del GPX (`<trkpt>` o, si no hay, `<rtept>`) y se calcula la distancia acumulada.
-2. Hora de paso = hora de salida + distancia ÷ velocidad media (constante en esta primera versión).
+2. Hora de paso según la pendiente (ver [Ritmo según la pendiente](#ritmo-según-la-pendiente)), más las paradas si se indican.
 3. Se toma un punto cada `ROUTE_SAMPLE_KM` km (2 por defecto) y se pide a Open-Meteo el pronóstico horario de todos ellos en una o pocas peticiones. Si el GPX trae altitud, se envía para corregir la temperatura.
 4. Para cada tramo de `ROUTE_SEGMENT_M` metros se interpola la meteo a la hora de paso y se compara la dirección del viento con el rumbo del tramo:
    - **En contra**: el viento llega a menos de 45° del frente.
@@ -35,6 +35,18 @@ Las dos comparten idioma (se guarda en el navegador), estilos base y configuraci
    - **Calma**: menos de 5 km/h.
 
 Los umbrales se cambian con variables de entorno.
+
+Encima de los resultados, un **resumen en una línea** dice lo importante sin mirar la tabla: si sales o llegas de noche (con la hora de amanecer o anochecer de Open-Meteo), frío o calor según `TEMP_COMFORT_MIN`–`TEMP_COMFORT_MAX`, cómo sopla el viento (por ejemplo, en contra a la ida y a favor a la vuelta), rachas fuertes y desde qué hora y kilómetro es probable la lluvia. La lógica está en `web/js/lib/verdict.js`.
+
+### Ritmo según la pendiente
+
+El tiempo total no cambia (distancia ÷ media indicada); lo que cambia es cómo se reparte: más lento en las subidas y más rápido en las bajadas. El nivel se deduce de la propia ruta: quien hace la misma media en una ruta con más desnivel es más fuerte y sube más rápido.
+
+- **Bici:** modelo de potencia (gravedad, rodadura y aire; CdA 0,4 m² y 85 kg con la bici). Se busca la potencia por kg con la que, en esta ruta, sale justo la media indicada. En las subidas se aprieta algo más (hasta +20 % al 10 %) y en las bajadas se limita a 45 km/h. En un puerto de 10 km al 7 %, entre una media de 22 y una de 26 km/h hay unos 11 minutos de diferencia; en 10 km llanos, menos de 2.
+- **Carrera:** coste energético de correr en pendiente (Minetti et al., 2002), la base del «ritmo ajustado a la pendiente» de Strava.
+- Sin altitudes en el GPX, velocidad constante.
+
+Las pendientes se miden cada 200 m para no sumar el ruido del GPS. La lógica está en `web/js/lib/pacing.js`.
 
 ## Rutas recientes
 
@@ -50,6 +62,10 @@ Debajo del nombre de la ruta, el botón **Recorrer en sentido contrario** le da 
 
 La app tiene un desplegable **Más opciones**, cerrado por defecto, con funciones para quien las quiera sin complicar el uso normal.
 
+### Paradas
+
+Minutos parados en total (café, avituallamiento…). Se suman a mitad de ruta, retrasan las horas de paso a partir de ahí y la llegada, y aparecen en la estimación bajo el formulario. Se guardan con los demás ajustes y viajan en los enlaces compartidos.
+
 ### Mejor hora de salida
 
 Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una franja del día elegido y puntúa cada una (menos es mejor):
@@ -61,11 +77,13 @@ Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una
 | Temperatura | Grados de sensación térmica fuera de `TEMP_COMFORT_MIN`–`TEMP_COMFORT_MAX` | 8 °C fuera del rango |
 | Noche | Parte de la ruta antes del amanecer o después del anochecer | La mitad de la ruta |
 
+Con **Comparar la misma franja en los próximos días** se repite la franja cada día hasta donde llega el pronóstico (como mucho una semana) y se muestra la mejor salida de cada día, con el mejor día marcado. Viene bien para escoger día en una salida larga o un viaje en bici.
+
 El selector «Qué evitar sobre todo» multiplica por 3 el peso del factor elegido (viento, lluvia o temperatura); «Un poco de todo» los pesa igual. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
 
 ### Compartir ruta
 
-Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte y la velocidad. No hay servidor ni base de datos:
+Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte, la velocidad y las paradas. No hay servidor ni base de datos:
 
 - La ruta se simplifica (Douglas-Peucker, unos 5 m de tolerancia), se codifica como polilínea con altitudes y se comprime (deflate + base64url). Una ruta de 70 km ocupa unos 1,7 KB; si el enlace pasa de 7.000 caracteres, se simplifica más.
 - Todo va detrás de `#`, que el navegador no envía a ningún servidor: ni GitHub ni nadie ve la ruta.
@@ -350,7 +368,7 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 
 ## Límites conocidos
 
-- **Velocidad constante.** En rutas con puertos la hora de paso se desvía. Próximo paso: ajustar por pendiente.
+- **Ritmo por pendiente:** es un modelo; no sabe del viento, del firme ni de cuánto frenas en cada curva. Las constantes están en `web/js/lib/pacing.js`.
 - **Open-Meteo gratuito:** uso no comercial y unas 10.000 consultas al día. Cada cálculo de ruta hace de 1 a 3 consultas.
 - **Pronóstico:** hasta 16 días. Más allá de 3 a 5 días, el viento por tramos es orientativo.
 - **Zona horaria:** las horas se muestran en la zona horaria del navegador.
@@ -358,7 +376,6 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 
 ## Ideas para siguientes versiones
 
-- Velocidad ajustada por pendiente (subidas y bajadas), con un modelo para bici y otro para carrera.
 - Importar desde Strava o Ride with GPS.
 
 ## Licencia

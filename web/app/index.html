@@ -126,6 +126,18 @@
         <details class="advanced" id="advanced">
           <summary data-i18n="advanced">Más opciones</summary>
 
+          <section class="adv-block" aria-labelledby="h-stops">
+            <h3 class="adv-title" id="h-stops" data-i18n="stopsTitle">Paradas</h3>
+            <p class="adv-hint" data-i18n="stopsHint">Tiempo parado en total (café, avituallamiento…). Se suma a mitad de ruta.</p>
+            <label class="field">
+              <span class="field-label" data-i18n="stopsLabel">Tiempo parado</span>
+              <span class="input-unit">
+                <input type="number" id="stops" inputmode="numeric" min="0" max="600" step="5" placeholder="0">
+                <span>min</span>
+              </span>
+            </label>
+          </section>
+
           <section class="adv-block" aria-labelledby="h-best">
             <h3 class="adv-title" id="h-best" data-i18n="bestTitle">Mejor hora de salida</h3>
             <p class="adv-hint" data-i18n="bestHint">Compara varias salidas el mismo día y te sugiere la mejor.</p>
@@ -147,6 +159,10 @@
                 <option value="rain" data-i18n="prioRain">Lluvia</option>
                 <option value="temp" data-i18n="prioTemp">Frío o calor</option>
               </select>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="best-days">
+              <span data-i18n="bestDays">Comparar la misma franja en los próximos días</span>
             </label>
             <button type="button" class="secondary" id="best-run" disabled>
               <span class="spinner" aria-hidden="true"></span>
@@ -189,6 +205,7 @@
 
       <section class="block results" id="results" hidden aria-labelledby="h-summary">
         <h2 class="visually-hidden" id="h-summary" data-i18n="windShare"></h2>
+        <p class="verdict" id="verdict" aria-live="polite"></p>
         <dl class="figures figures-4" id="summary"></dl>
 
         <div class="share">
