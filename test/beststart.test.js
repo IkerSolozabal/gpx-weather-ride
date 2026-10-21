@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { buildTrack } from '../web/js/lib/geo.js';
 import { fetchSeries } from '../web/js/lib/plan.js';
-import { candidateStarts, rankStarts, scoreMetrics, PRIORITIES } from '../web/js/lib/beststart.js';
+import { candidateStarts, rankDays, rankStarts, scoreMetrics, PRIORITIES } from '../web/js/lib/beststart.js';
 import { isDaylight, toSeries } from '../web/js/lib/weather.js';
 import { fakeFetch, fakeLocation, straightLine } from './helpers.js';
 
@@ -82,4 +82,21 @@ test('scoreMetrics: el viento a favor bonifica y los pesos cambian el orden', ()
   const wet = { ...base, rainAvg: 60 };
   assert.ok(scoreMetrics(windy, PRIORITIES.wind) > scoreMetrics(wet, PRIORITIES.wind));
   assert.ok(scoreMetrics(windy, PRIORITIES.rain) < scoreMetrics(wet, PRIORITIES.rain));
+});
+
+test('rankDays elige el mejor día con la misma franja horaria', async () => {
+  // Ruta hacia el norte: el primer día viento del norte (en contra), el segundo del sur (a favor).
+  const track = buildTrack(straightLine({ km: 30, bearingDeg: 0 }));
+  const data = await fetchSeries(
+    track,
+    { sampleKm: 5, fromMs: at(5), toMs: at(24 + 22), weather: { baseUrl: 'https://x/v1/forecast' } },
+    fakeFetch((s, h) => fakeLocation(s, h, { windDir: (i) => (i < 24 ? 0 : 180), windSpeed: 20 })),
+  );
+  const days = [0, 1, 9].map((k) => ({ fromMs: at(24 * k + 8), toMs: at(24 * k + 12) }));
+  const list = rankDays({ track, ...data, speedKmh: 30, days, priority: 'wind' });
+  assert.equal(list.length, 3);
+  assert.equal(list.filter((c) => c.best).length, 1);
+  assert.ok(list[1].best);
+  assert.ok(list[1].startMs >= at(32) && list[1].startMs <= at(36));
+  assert.equal(list[2].score, null); // día sin pronóstico
 });

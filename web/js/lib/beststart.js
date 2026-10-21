@@ -127,6 +127,11 @@ export function rankStarts({ track, samples, series, speedKmh, fromMs, toMs, ste
     const m = evaluateStart(points, series, startMs, speedKmh, opts);
     return { ...m, score: m.missing > 0.05 ? null : scoreMetrics(m, weights) };
   });
+  return markBest(list);
+}
+
+/** Marca la mejor (`best`) y da a cada una `quality`: 1 = la mejor de la lista, 0 = la peor. */
+function markBest(list) {
   const scored = list.filter((c) => c.score !== null);
   if (scored.length) {
     const best = scored.reduce((a, b) => (b.score < a.score ? b : a));
@@ -134,9 +139,22 @@ export function rankStarts({ track, samples, series, speedKmh, fromMs, toMs, ste
     const span = worst.score - best.score || 1;
     for (const c of list) {
       c.best = c === best;
-      // 1 = la mejor de la franja, 0 = la peor (para dibujar barras).
       c.quality = c.score === null ? null : 1 - (c.score - best.score) / span;
     }
   }
   return list;
+}
+
+/**
+ * Mejor salida de cada día: la misma franja horaria en varios días.
+ * @param {{days: {fromMs: number, toMs: number}[]}} opts Lo demás, como en rankStarts.
+ * @returns La mejor de cada día (o la primera hora sin puntuar si ese día no hay pronóstico), con la mejor de todas marcada.
+ */
+export function rankDays({ days, ...opts }) {
+  const list = days.map(({ fromMs, toMs }) => {
+    const day = rankStarts({ ...opts, fromMs, toMs });
+    const best = day.find((c) => c.best);
+    return best ? { ...best, best: false } : { ...day[0], score: null };
+  });
+  return markBest(list);
 }
