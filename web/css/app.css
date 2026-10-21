@@ -294,6 +294,7 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 
 /* Resultado: una fila por hora de salida, barra = lo buena que es respecto a las demás */
 .best { display: grid; gap: 10px; }
+.best-head { font: 600 15px/1.2 var(--font-figure); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 6px; }
 .best-summary { font-size: 14px; }
 .best-summary b { font: 600 17px/1 var(--font-figure); }
 .best-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }

@@ -4,7 +4,7 @@ import { parseGpx, GpxError } from './lib/gpx.js';
 import { bearingAround, buildTrack, elevationStats, pointAt, reverseTrack } from './lib/geo.js';
 import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
 import { assemblePlan, fetchSeries, headwindAt, nearestSample } from './lib/plan.js';
-import { daylightWindows, rankDays } from './lib/beststart.js';
+import { atTime, rankDays, rankStarts, sameHourDays } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
 import { buildGpx, fileName } from './lib/gpx-export.js';
@@ -131,6 +131,11 @@ function init() {
   const prio = store.get('bestPriority', 'balanced');
   $('best-priority').value = prio;
   $('best-priority').addEventListener('change', () => store.set('bestPriority', $('best-priority').value));
+  // La franja de horas se recuerda entre visitas.
+  for (const id of ['best-from', 'best-to']) {
+    $(id).value = store.get(id, $(id).value);
+    $(id).addEventListener('change', () => store.set(id, $(id).value));
+  }
   $('share-run').addEventListener('click', onShare);
   // Al abrir «Más opciones» su contenido suele quedar fuera de la vista del panel: lo mostramos.
   $('advanced').addEventListener('toggle', (ev) => {
@@ -805,16 +810,23 @@ async function onBestRun() {
   const pace = paceFor(form);
   const now = Date.now();
   const limit = now + cfg.forecastDays * DAY;
+  const step = cfg.bestStartStepMin * 60_000;
+  // 1) El día de salida, entre «Desde» y «Hasta» (sin las horas ya pasadas).
+  const fromMs = Math.max(atTime(form.startMs, $('best-from').value), Math.ceil(now / step) * step);
+  const toMs = atTime(form.startMs, $('best-to').value);
+  if (!(toMs > atTime(form.startMs, $('best-from').value))) return showMessage(t('err_best_window'));
+  // 2) La hora de salida del formulario, ese día y los siguientes.
+  const days = sameHourDays(form.startMs, { days: 7, nowMs: now, limitMs: limit, durationMs: pace.totalMs });
+  if (fromMs > toMs && !days.length) return showMessage(t('err_best_none'));
 
   const btn = $('best-run');
   btn.disabled = true;
   btn.classList.add('is-loading');
   try {
-    // Una semana (o lo que llegue el pronóstico) en una sola consulta; las franjas con luz salen de ahí.
-    const { samples, series } = await getSeries(now, Math.min(now + 8 * DAY, limit));
-    const days = daylightWindows(series[0], { days: 7, durationMs: pace.totalMs, nowMs: now, stepMin: cfg.bestStartStepMin }).filter(
-      (d) => d.toMs + pace.totalMs <= limit,
-    );
+    // Todo en una sola consulta: desde la primera salida hasta la llegada de la última.
+    const first = Math.min(fromMs, days.length ? days[0].fromMs : Infinity);
+    const last = Math.max(toMs, days.length ? days[days.length - 1].toMs : -Infinity);
+    const { samples, series } = await getSeries(first, Math.min(last + pace.totalMs, limit));
     const opts = {
       track: state.track,
       samples,
@@ -827,10 +839,11 @@ async function onBestRun() {
       comfortMin: cfg.comfortMinC,
       comfortMax: cfg.comfortMaxC,
     };
-    const list = rankDays({ ...opts, days });
-    state.best = { list, sport: form.sport, speedKmh: form.speedKmh };
+    const hours = fromMs <= toMs ? rankStarts({ ...opts, fromMs, toMs }) : [];
+    const other = rankDays({ ...opts, days });
+    state.best = { hours, days: other, dayMs: form.startMs, fromMs, toMs, hourMs: form.startMs };
     renderBest();
-    if (!list.some((c) => c.best)) showMessage(t('err_best_none'));
+    if (![...hours, ...other].some((c) => c.best)) showMessage(t('err_best_none'));
   } catch (err) {
     console.error(err);
     if (err instanceof WeatherError) showMessage(t(`err_${err.code}`, { detail: err.detail || '', days: cfg.forecastDays }));
@@ -841,24 +854,10 @@ async function onBestRun() {
   }
 }
 
-function renderBest() {
-  const box = $('best-results');
-  const { list } = state.best;
-  const best = list.find((c) => c.best);
-  const when = (ms) => f.time(ms, { withDay: true });
+/** Una fila por salida; la barra dice lo buena que es respecto a las demás de su lista. */
+function bestRows(list, label) {
   const current = state.plan ? state.plan.startMs : null;
-  let html = '';
-  if (best) {
-    html += `<p class="best-summary">${t('bestSummaryDay', {
-      time: `<b>${when(best.startMs)}</b>`,
-      head: Math.round(best.headShare * 100),
-      rain: Math.round(best.rainMax),
-      tmin: f.temp(best.tempMin),
-      tmax: f.temp(best.tempMax),
-    })}${best.darkShare > 0.02 ? ` ${t('bestDark')}` : ''}</p>`;
-    html += `<button type="button" class="primary best-use" data-start="${best.startMs}">${t('bestUse', { time: when(best.startMs) })}</button>`;
-  }
-  html += `<p class="adv-hint">${t('bestPick')}</p><ul class="best-list">`;
+  let html = '<ul class="best-list">';
   for (const c of list) {
     const ok = c.score !== null;
     const cls = ['best-row', c.best ? 'is-best' : '', current === c.startMs ? 'is-current' : ''].join(' ').trim();
@@ -867,12 +866,41 @@ function renderBest() {
       ? `${t('bestMeta', { temp: f.temp(c.tempMin), head: Math.round(c.headShare * 100), rain: Math.round(c.rainMax) })}${c.darkShare > 0.02 ? ' · 🌙' : ''}`
       : t('bestNoData');
     html += `<li><button type="button" class="${cls}" data-start="${c.startMs}" ${ok ? '' : 'disabled'}>
-      <span class="best-time">${when(c.startMs)}</span>
+      <span class="best-time">${label(c.startMs)}</span>
       <span class="best-bar"><span style="width:${width}%"></span></span>
       <span class="best-meta">${meta}</span>
     </button></li>`;
   }
-  html += '</ul>';
+  return `${html}</ul>`;
+}
+
+function renderBest() {
+  const box = $('best-results');
+  const { hours, days, dayMs, fromMs, toMs, hourMs } = state.best;
+  let html = '';
+  // 1) Horas del día elegido
+  const bestHour = hours.find((c) => c.best);
+  if (hours.length) {
+    html += `<h4 class="best-head">${t('bestHoursHead', { day: f.day(dayMs), from: f.time(fromMs), to: f.time(toMs) })}</h4>`;
+    if (bestHour) {
+      html += `<p class="best-summary">${t('bestSummary', {
+        time: `<b>${f.time(bestHour.startMs)}</b>`,
+        head: Math.round(bestHour.headShare * 100),
+        rain: Math.round(bestHour.rainMax),
+        tmin: f.temp(bestHour.tempMin),
+        tmax: f.temp(bestHour.tempMax),
+      })}${bestHour.darkShare > 0.02 ? ` ${t('bestDark')}` : ''}</p>`;
+    }
+    html += bestRows(hours, (ms) => f.time(ms));
+  }
+  // 2) La misma hora, otros días
+  const bestDay = days.find((c) => c.best);
+  if (days.length) {
+    html += `<h4 class="best-head">${t('bestDaysHead', { time: f.time(hourMs) })}</h4>`;
+    if (bestDay) html += `<p class="best-summary">${t('bestDaysSummary', { day: `<b>${f.day(bestDay.startMs)}</b>` })}</p>`;
+    html += bestRows(days, (ms) => f.day(ms));
+  }
+  html += `<p class="adv-hint">${t('bestPick')}</p>`;
   box.innerHTML = html;
   box.hidden = false;
   for (const b of box.querySelectorAll('[data-start]')) {

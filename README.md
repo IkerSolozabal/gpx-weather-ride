@@ -75,7 +75,12 @@ La lógica está en `normalizeStops` y `paceProfile` (`web/js/lib/pacing.js`).
 
 ### Mejor momento para salir
 
-Un solo botón, **¿Cuándo salgo?**, sin franjas que rellenar. Para cada uno de los próximos 7 días (o hasta donde llegue el pronóstico) prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) **con luz**: desde el amanecer hasta la última salida con la que se llega antes de anochecer, con el ritmo por pendiente y las paradas. Hoy empieza desde ahora y se salta si ya no da tiempo a llegar de día; si la ruta no cabe en el día, se prueba solo la salida al amanecer. Muestra la mejor salida de cada día, con el mejor día marcado; al pulsar un día se calcula su ruta.
+Dos comparaciones con un solo botón, **Comparar**:
+
+1. **Horas del día de salida:** entre «Desde» y «Hasta» (se recuerdan entre visitas), una salida cada `BEST_START_STEP_MIN` minutos (30 por defecto), sin las que ya han pasado.
+2. **La misma hora, otros días:** la hora de salida del formulario ese día y los 6 siguientes (hasta donde llegue el pronóstico), para ver si te conviene más otro día a la misma hora.
+
+Cada lista marca la mejor y muestra temperatura, % de viento en contra, lluvia y 🌙 si parte de la ruta va de noche. Todo sale de una sola consulta a Open-Meteo, con el ritmo por pendiente y las paradas; al pulsar una hora o un día se calcula su ruta.
 
 Cada salida se puntúa así (menos es mejor):
 

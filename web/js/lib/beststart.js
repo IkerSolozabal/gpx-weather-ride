@@ -159,22 +159,33 @@ function markBest(list) {
   return list;
 }
 
+/** El mismo día que `baseMs` a la hora «HH:MM» (hora local). NaN si la hora no es válida. */
+export function atTime(baseMs, hhmm) {
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return NaN;
+  const d = new Date(baseMs);
+  d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  return d.getTime();
+}
+
+/** El mismo reloj local `days` días después (respeta los cambios de hora). */
+export function addDays(ms, days) {
+  const d = new Date(ms);
+  d.setDate(d.getDate() + days);
+  return d.getTime();
+}
+
 /**
- * Franjas con luz de los próximos días: desde el amanecer hasta la última salida con la
- * que se llega antes de anochecer (si la ruta no cabe en el día, solo el amanecer). Hoy
- * empieza ahora, y se salta si ya no da tiempo a llegar de día.
- * @param {object} series Serie de un punto de la ruta (con sunrise y sunset).
- * @param {{days: number, durationMs: number, nowMs: number, stepMin?: number}} opts
- * @returns {{fromMs: number, toMs: number}[]}
+ * La misma hora de salida en los próximos días (incluido el elegido), para compararlos.
+ * Sin las salidas ya pasadas ni las que acabarían fuera del pronóstico.
+ * @returns {{fromMs: number, toMs: number}[]} Una «franja» de un solo instante por día (para rankDays).
  */
-export function daylightWindows(series, { days, durationMs, nowMs, stepMin = 30 }) {
-  const step = stepMin * 60_000;
-  const { sunrise = [], sunset = [] } = series;
+export function sameHourDays(startMs, { days = 7, nowMs, limitMs, durationMs }) {
   const out = [];
-  for (let i = 0; i < sunrise.length && out.length < days; i++) {
-    if (sunset[i] - durationMs < nowMs) continue;
-    const fromMs = Math.ceil(Math.max(sunrise[i], nowMs) / step) * step;
-    out.push({ fromMs, toMs: Math.max(fromMs, Math.floor((sunset[i] - durationMs) / step) * step) });
+  for (let k = 0; k < days; k++) {
+    const t = addDays(startMs, k);
+    if (t + durationMs > limitMs) break;
+    if (t >= nowMs) out.push({ fromMs: t, toMs: t });
   }
   return out;
 }

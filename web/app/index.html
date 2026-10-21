@@ -157,7 +157,17 @@
 
           <section class="adv-block" aria-labelledby="h-best">
             <h3 class="adv-title" id="h-best" data-i18n="bestTitle">Mejor momento para salir</h3>
-            <p class="adv-hint" data-i18n="bestHint">Compara los próximos días, con luz, y te dice cuándo salir.</p>
+            <p class="adv-hint" data-i18n="bestHint">Compara las horas que elijas del día de salida y, a tu hora de salida, los próximos días.</p>
+            <div class="fields">
+              <label class="field">
+                <span class="field-label" data-i18n="bestFrom">Desde</span>
+                <input type="time" id="best-from" value="07:00" step="900">
+              </label>
+              <label class="field">
+                <span class="field-label" data-i18n="bestTo">Hasta</span>
+                <input type="time" id="best-to" value="13:00" step="900">
+              </label>
+            </div>
             <label class="field">
               <span class="field-label" data-i18n="bestPriority">Qué evitar sobre todo</span>
               <select id="best-priority">
@@ -169,7 +179,7 @@
             </label>
             <button type="button" class="secondary" id="best-run" disabled>
               <span class="spinner" aria-hidden="true"></span>
-              <span data-i18n="bestRun">¿Cuándo salgo?</span>
+              <span data-i18n="bestRun">Comparar</span>
             </button>
             <div class="best" id="best-results" aria-live="polite" hidden></div>
           </section>
