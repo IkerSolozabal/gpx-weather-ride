@@ -18,11 +18,34 @@ const min = (ms) => ms / 60000;
 
 test('el tiempo total sigue siendo distancia ÷ media, más las paradas', () => {
   const track = climbRoute();
-  const p = paceProfile(track, { sport: 'bike', speedKmh: 24, stopMin: 20 });
+  const p = paceProfile(track, { sport: 'bike', speedKmh: 24, stops: [{ km: 20, min: 20 }, { km: 5, min: 10 }] });
   const expected = (track.total / 1000 / 24) * 3600_000;
   assert.ok(Math.abs(p.movingMs - expected) < 1);
-  assert.ok(Math.abs(p.offset(track.total) - (expected + 20 * 60_000)) < 1);
+  assert.ok(Math.abs(p.offset(track.total) - (expected + 30 * 60_000)) < 1);
   assert.equal(p.offset(0), 0);
+});
+
+test('cada parada retrasa el paso solo a partir de su kilómetro', () => {
+  const track = climbRoute();
+  const plain = paceProfile(track, { sport: 'bike', speedKmh: 24 });
+  const p = paceProfile(track, { sport: 'bike', speedKmh: 24, stops: [{ km: 20, min: 20 }, { km: 5, min: 10 }] });
+  const delay = (d) => Math.round((p.offset(d) - plain.offset(d)) / 60_000);
+  assert.equal(delay(4000), 0);
+  assert.equal(delay(6000), 10);
+  assert.equal(delay(20000), 10); // al llegar a la parada aún no ha parado
+  assert.equal(delay(21000), 30);
+  assert.deepEqual(p.stops.map((s) => s.d), [5000, 20000]);
+});
+
+test('paradas sin km van a mitad de ruta y las de fuera de la ruta, a la meta', async () => {
+  const { normalizeStops } = await import('../web/js/lib/pacing.js');
+  assert.deepEqual(normalizeStops([{ min: 10 }, { km: 99, min: 5 }, { km: 3, min: 0 }], 30000), [
+    { d: 15000, ms: 600_000 },
+    { d: 30000, ms: 300_000 },
+  ]);
+  const track = climbRoute();
+  const p = paceProfile(track, { sport: 'run', speedKmh: 10, stops: [{ km: 99, min: 5 }] });
+  assert.ok(Math.abs(p.offset(track.total) - p.totalMs) < 1);
 });
 
 test('en bici se sube más despacio y se baja más deprisa', () => {

@@ -9,6 +9,8 @@
  *   mucho más en los puertos (manda la gravedad) que uno fuerte (en llano manda el aire).
  * - Carrera: coste energético de correr en pendiente (Minetti et al., 2002), la base
  *   del «ritmo ajustado a la pendiente» de Strava, con la misma calibración.
+ *
+ * Las paradas ({km, min}) retrasan el paso a partir de su punto kilométrico.
  */
 
 import { distanceSteps, pointAt } from './geo.js';
@@ -75,13 +77,25 @@ export function bikeLevel(segs, targetSec) {
 }
 
 /**
+ * Paradas válidas, ordenadas, en metros: [{d, ms}]. Sin km (o fuera de la ruta) se ajustan
+ * a la ruta; sin km, a mitad de camino. Las de 0 minutos se descartan.
+ */
+export function normalizeStops(stops, total) {
+  return (Array.isArray(stops) ? stops : [])
+    .map((s) => ({ km: Number(s && s.km), min: Number(s && s.min) }))
+    .filter((s) => s.min > 0)
+    .map((s) => ({ d: Number.isFinite(s.km) && s.km >= 0 ? Math.min(total, s.km * 1000) : total / 2, ms: Math.min(s.min, 24 * 60) * 60_000 }))
+    .sort((a, b) => a.d - b.d);
+}
+
+/**
  * Tiempo de paso según la distancia, con la pendiente y las paradas.
  * @param {object} track Resultado de buildTrack.
- * @param {{sport: 'bike'|'run', speedKmh: number, stopMin?: number, stepM?: number}} opts
- * @returns {{offset: (d:number) => number, movingMs: number, stopMs: number, totalMs: number, stopAt: number, wkg: number|null}}
- *   offset(d): ms desde la salida hasta pasar por la distancia d. Las paradas se cuentan a mitad de ruta.
+ * @param {{sport: 'bike'|'run', speedKmh: number, stops?: {km: number, min: number}[], stepM?: number}} opts
+ * @returns {{offset: (d:number) => number, movingMs: number, stopMs: number, totalMs: number, stops: {d: number, ms: number}[], wkg: number|null}}
+ *   offset(d): ms desde la salida hasta pasar por la distancia d (después de las paradas anteriores).
  */
-export function paceProfile(track, { sport, speedKmh, stopMin = 0, stepM = 200 }) {
+export function paceProfile(track, { sport, speedKmh, stops = [], stepM = 200 }) {
   if (!(speedKmh > 0)) throw new Error('speed must be > 0');
   const movingMs = (track.total / 1000 / speedKmh) * 3600_000;
   const segs = track.total > 0 ? gradeProfile(track, stepM) : [];
@@ -100,8 +114,10 @@ export function paceProfile(track, { sport, speedKmh, stopMin = 0, stepM = 200 }
   const cum = [0];
   for (const w of weights) cum.push(cum[cum.length - 1] + (w / sum) * movingMs);
 
-  const stopMs = Math.max(0, stopMin || 0) * 60_000;
-  const stopAt = track.total / 2;
+  const stopList = normalizeStops(stops, track.total);
+  const stopMs = stopList.reduce((a, s) => a + s.ms, 0);
+  // Una parada en el km d cuenta para quien pasa después; la de la meta, para la llegada.
+  const stopped = (d) => stopList.reduce((a, s) => a + (d > s.d || (d >= track.total && s.d >= track.total) ? s.ms : 0), 0);
 
   function moving(d) {
     if (d <= 0 || !segs.length) return 0;
@@ -118,11 +134,11 @@ export function paceProfile(track, { sport, speedKmh, stopMin = 0, stepM = 200 }
   }
 
   return {
-    offset: (d) => moving(d) + (stopMs && d > stopAt ? stopMs : 0),
+    offset: (d) => moving(d) + stopped(d),
     movingMs,
     stopMs,
     totalMs: movingMs + stopMs,
-    stopAt,
+    stops: stopList,
     wkg,
   };
 }

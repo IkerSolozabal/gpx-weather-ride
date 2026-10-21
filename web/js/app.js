@@ -105,7 +105,6 @@ function init() {
   els.form.sport.value = sport;
   els.speed.value = saved.speed || cfg.bikeSpeedKmh;
   els.pace.value = saved.pace || cfg.runPace;
-  $('stops').value = saved.stops || '';
   toggleSport(sport);
 
   const now = Date.now();
@@ -142,6 +141,8 @@ function init() {
   $('export-gpx').addEventListener('click', onExportGpx);
   $('change-route').addEventListener('click', () => els.file.click());
   $('reverse-route').addEventListener('click', onReverse);
+  $('stop-add').addEventListener('click', onAddStop);
+  $('stops').addEventListener('click', onStopsClick);
   $('news-open').addEventListener('click', () => news.open(NEWS));
   setupDrop();
 
@@ -215,6 +216,7 @@ async function loadFile(file) {
     els.file.value = '';
   }
   state.reversed = false;
+  setStops();
   // Una ruta nueva sustituye a la del enlace compartido.
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
@@ -279,8 +281,11 @@ function showRouteInfo() {
 function onReverse() {
   if (!state.track || state.busy) return;
   const hadPlan = Boolean(state.plan);
+  const totalKm = state.track.total / 1000;
   state.track = reverseTrack(state.track);
   state.reversed = !state.reversed;
+  // Las paradas siguen en el mismo sitio: su km se cuenta ahora desde el otro extremo.
+  setStops(readStops().map((s) => ({ ...s, km: Number.isFinite(s.km) ? Math.round((totalKm - s.km) * 10) / 10 : '' })));
   showLoadedRoute();
   if (hadPlan) els.form.requestSubmit();
 }
@@ -355,6 +360,7 @@ async function onRecentClick(ev) {
     state.track = buildTrack(route.points);
     state.routeName = route.name || entry.name;
     state.reversed = false;
+    setStops();
   } catch {
     store.set('recent', removeRecent(loadRecent(), entry.id));
     renderRecent();
@@ -485,11 +491,11 @@ function onFormChange(ev) {
   }
   els.speed.removeAttribute('aria-invalid');
   els.pace.removeAttribute('aria-invalid');
-  store.set('settings', { sport: els.form.sport.value, speed: els.speed.value, pace: els.pace.value, stops: $('stops').value });
+  store.set('settings', { sport: els.form.sport.value, speed: els.speed.value, pace: els.pace.value });
   updateEstimate();
 }
 
-/** Lee el formulario. Devuelve {startMs, speedKmh, sport, stopMin} o {error, field}. */
+/** Lee el formulario. Devuelve {startMs, speedKmh, sport, stops} o {error, field}. */
 function readForm() {
   const sport = els.form.sport.value;
   const startMs = els.start.value ? new Date(els.start.value).getTime() : NaN;
@@ -503,16 +509,60 @@ function readForm() {
     if (!pace) return { error: 'err_pace', field: els.pace };
     speedKmh = paceToKmh(pace);
   }
-  const stopMin = Math.min(600, Math.max(0, parseFloat($('stops').value) || 0));
-  return { sport, startMs, speedKmh, stopMin };
+  return { sport, startMs, speedKmh, stops: readStops() };
+}
+
+// --- Paradas: cada una con su punto kilométrico y sus minutos (dependen de la ruta, no se guardan) ---
+function stopRow({ km = '', min = '' } = {}) {
+  const li = document.createElement('li');
+  li.className = 'stop-row';
+  li.innerHTML = `
+    <span class="input-unit"><input type="number" class="stop-km" inputmode="decimal" min="0" step="0.1" data-i18n-aria="stopKm"><span>km</span></span>
+    <span class="input-unit"><input type="number" class="stop-min" inputmode="numeric" min="0" max="1440" step="5" data-i18n-aria="stopMin"><span>min</span></span>
+    <button type="button" class="stop-del" data-i18n-aria="stopDel">×</button>`;
+  li.querySelector('.stop-km').value = km;
+  li.querySelector('.stop-min').value = min;
+  applyI18n(li);
+  return li;
+}
+
+function setStops(stops = []) {
+  $('stops').replaceChildren(...stops.map(stopRow));
+}
+
+/** Paradas del formulario con minutos: [{km, min}]. */
+function readStops() {
+  const num = (input) => parseFloat(String(input.value).replace(',', '.'));
+  return [...$('stops').querySelectorAll('.stop-row')]
+    .map((row) => ({ km: num(row.querySelector('.stop-km')), min: num(row.querySelector('.stop-min')) }))
+    .filter((s) => s.min > 0);
+}
+
+/** Nueva parada a mitad de lo que queda tras la última, con 15 minutos. */
+function onAddStop() {
+  const totalKm = state.track ? state.track.total / 1000 : 0;
+  const kms = [...$('stops').querySelectorAll('.stop-km')].map((i) => parseFloat(i.value)).filter(Number.isFinite);
+  const last = kms.length ? Math.max(...kms) : 0;
+  const row = stopRow({ km: totalKm ? Math.round((last + (totalKm - last) / 2) * 10) / 10 : '', min: 15 });
+  $('stops').append(row);
+  row.querySelector('.stop-km').focus();
+  updateEstimate();
+}
+
+function onStopsClick(ev) {
+  const del = ev.target.closest('.stop-del');
+  if (!del) return;
+  del.closest('.stop-row').remove();
+  updateEstimate();
 }
 
 /** Tiempo de paso según la pendiente y las paradas (lib/pacing.js), reutilizado mientras no cambie nada. */
+
 function paceFor(form) {
-  const key = `${form.sport}|${form.speedKmh}|${form.stopMin}`;
+  const key = `${form.sport}|${form.speedKmh}|${JSON.stringify(form.stops)}`;
   const c = state.pace;
   if (c && c.track === state.track && c.key === key) return c.profile;
-  const profile = paceProfile(state.track, { sport: form.sport, speedKmh: form.speedKmh, stopMin: form.stopMin });
+  const profile = paceProfile(state.track, { sport: form.sport, speedKmh: form.speedKmh, stops: form.stops });
   state.pace = { track: state.track, key, profile };
   return profile;
 }
@@ -524,7 +574,7 @@ function updateEstimate() {
     return;
   }
   const dur = (state.track.total / 1000 / form.speedKmh) * 3600_000;
-  const stopMs = form.stopMin * 60_000;
+  const stopMs = form.stops.reduce((a, s) => a + s.min, 0) * 60_000;
   const end = form.startMs + dur + stopMs;
   const vars = { duration: formatDuration(dur), stops: formatDuration(stopMs), end: f.time(end, { withDay: f.differentDay(form.startMs, end) }) };
   let text = t(stopMs ? 'estimateStops' : 'estimate', vars);
@@ -835,7 +885,7 @@ async function onShare() {
       startMs: form.error ? undefined : form.startMs,
       sport: els.form.sport.value,
       speedKmh: form.error ? undefined : form.speedKmh,
-      stopMin: form.error ? undefined : form.stopMin,
+      stops: form.error ? undefined : form.stops,
       hideMeters: $('share-hide').checked ? 500 : 0,
     });
     url = `${location.origin}${location.pathname}#${hash}`;
@@ -883,7 +933,7 @@ async function loadFromLink() {
     if (els.form.sport.value === 'run') els.pace.value = formatPace(kmhToPace(shared.speedKmh));
     else els.speed.value = Math.round(shared.speedKmh * 10) / 10;
   }
-  $('stops').value = shared.stopMin || '';
+  setStops(shared.stops);
   const past = !shared.startMs || shared.startMs < Date.now();
   els.start.value = f.toLocalInput(past ? Math.ceil(Date.now() / 3600_000) * 3600_000 : shared.startMs);
   state.startPicker?.refresh();

@@ -26,7 +26,7 @@ Las dos comparten idioma (se guarda en el navegador), estilos base y configuraci
 ## Cómo funciona
 
 1. Se leen los puntos del GPX (`<trkpt>` o, si no hay, `<rtept>`) y se calcula la distancia acumulada.
-2. Hora de paso según la pendiente (ver [Ritmo según la pendiente](#ritmo-según-la-pendiente)), más las paradas si se indican.
+2. Hora de paso según la pendiente (ver [Ritmo según la pendiente](#ritmo-según-la-pendiente)), más las paradas anteriores a cada punto.
 3. Se toma un punto cada `ROUTE_SAMPLE_KM` km (2 por defecto) y se pide a Open-Meteo el pronóstico horario de todos ellos en una o pocas peticiones. Si el GPX trae altitud, se envía para corregir la temperatura.
 4. Para cada tramo de `ROUTE_SEGMENT_M` metros se interpola la meteo a la hora de paso y se compara la dirección del viento con el rumbo del tramo:
    - **En contra**: el viento llega a menos de 45° del frente.
@@ -64,7 +64,13 @@ La app tiene un desplegable **Más opciones**, cerrado por defecto, con funcione
 
 ### Paradas
 
-Minutos parados en total (café, avituallamiento…). Se suman a mitad de ruta, retrasan las horas de paso a partir de ahí y la llegada, y aparecen en la estimación bajo el formulario. Se guardan con los demás ajustes y viajan en los enlaces compartidos.
+Cada parada lleva su **punto kilométrico** y sus **minutos**, y se pueden añadir tantas como haga falta (**+ Añadir parada**; la × la quita). Una parada retrasa las horas de paso a partir de su kilómetro, no antes, y el total parado aparece en la estimación bajo el formulario.
+
+- Dependen de la ruta, así que no se guardan como ajuste: se vacían al cargar otra ruta.
+- Al recorrer la ruta en sentido contrario siguen en el mismo sitio (su km se cuenta desde el otro extremo).
+- Viajan en los enlaces compartidos.
+
+La lógica está en `normalizeStops` y `paceProfile` (`web/js/lib/pacing.js`).
 
 ### Mejor hora de salida
 

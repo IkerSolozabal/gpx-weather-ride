@@ -128,14 +128,9 @@
 
           <section class="adv-block" aria-labelledby="h-stops">
             <h3 class="adv-title" id="h-stops" data-i18n="stopsTitle">Paradas</h3>
-            <p class="adv-hint" data-i18n="stopsHint">Tiempo parado en total (café, avituallamiento…). Se suma a mitad de ruta.</p>
-            <label class="field">
-              <span class="field-label" data-i18n="stopsLabel">Tiempo parado</span>
-              <span class="input-unit">
-                <input type="number" id="stops" inputmode="numeric" min="0" max="600" step="5" placeholder="0">
-                <span>min</span>
-              </span>
-            </label>
+            <p class="adv-hint" data-i18n="stopsHint">Café, avituallamiento… Indica en qué kilómetro paras y cuántos minutos.</p>
+            <ul class="stops" id="stops"></ul>
+            <button type="button" class="link-btn stop-add" id="stop-add" data-i18n="stopAdd">+ Añadir parada</button>
           </section>
 
           <section class="adv-block" aria-labelledby="h-best">

@@ -45,7 +45,7 @@ test('aviso de luces si se llega después de anochecer o se sale antes de amanec
 });
 
 test('las paradas retrasan la llegada y pueden hacer que se llegue de noche', async () => {
-  const p = await plan({ windSpeed: 5, temp: 15 }, { startH: 16.5, pace: { stopMin: 60 } });
+  const p = await plan({ windSpeed: 5, temp: 15 }, { startH: 16.5, pace: { stops: [{ km: 10, min: 60 }] } });
   assert.ok(Math.abs(p.endMs - at(18.5)) < 60_000);
   assert.equal(p.stopMs, 3600_000);
   assert.equal(verdict(p)[0].key, 'vDarkEnd');
