@@ -49,6 +49,7 @@ const PRECACHE = [
   './js/lib/gpx-export.js',
   './js/lib/gpx.js',
   './js/lib/news.js',
+  './js/lib/pacing.js',
   './js/lib/plan.js',
   './js/lib/recent.js',
   './js/lib/share.js',

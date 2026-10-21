@@ -40,12 +40,13 @@ export function evaluationPoints(track, samples, { evalM = 500, courseWindow = 2
 }
 
 /**
- * Métricas de una salida concreta.
+ * Métricas de una salida concreta. Con `opts.pace` (lib/pacing.js) las horas de paso
+ * tienen en cuenta la pendiente y las paradas; sin él, velocidad constante.
  * @returns {{startMs, endMs, headKmh, headShare, tailShare, rainAvg, rainMax, tempMin, tempMax, tempPenalty, darkShare, missing}}
  */
 export function evaluateStart(points, series, startMs, speedKmh, opts = {}) {
-  const { wind: windOpts = {}, comfortMin = 10, comfortMax = 25 } = opts;
-  const clock = makeClock(startMs, speedKmh);
+  const { wind: windOpts = {}, comfortMin = 10, comfortMax = 25, pace } = opts;
+  const clock = pace ? (d) => startMs + pace.offset(d) : makeClock(startMs, speedKmh);
   let total = 0;
   let head = 0;
   let headLen = 0;

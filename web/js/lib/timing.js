@@ -1,4 +1,4 @@
-/** Cálculo de horas de paso a velocidad media constante. */
+/** Ritmos y horas de paso a velocidad media constante (con la pendiente: lib/pacing.js). */
 
 /** "5:30" o "5.5" → segundos por km. Devuelve null si no es válido. */
 export function parsePace(text) {
