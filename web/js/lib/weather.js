@@ -69,15 +69,25 @@ export function toSeries(location) {
   };
 }
 
+/**
+ * Amanecer y anochecer (ms) del día en que cae el instante: el de mediodía solar más
+ * cercano, así que la madrugada es del día que empieza y no del anterior.
+ * null si no hay datos de ese día.
+ */
+export function sunTimes(series, tMs) {
+  const { sunrise = [], sunset = [] } = series;
+  let best = null;
+  for (let i = 0; i < sunrise.length; i++) {
+    const gap = Math.abs(tMs - (sunrise[i] + sunset[i]) / 2);
+    if (gap < 12 * 3600_000 && (!best || gap < best.gap)) best = { gap, sunrise: sunrise[i], sunset: sunset[i] };
+  }
+  return best && { sunrise: best.sunrise, sunset: best.sunset };
+}
+
 /** true si el instante cae entre el amanecer y el anochecer; null si no hay datos de ese día. */
 export function isDaylight(series, tMs) {
-  const { sunrise = [], sunset = [] } = series;
-  for (let i = 0; i < sunrise.length; i++) {
-    const dayStart = sunrise[i] - 12 * 3600_000;
-    const dayEnd = sunset[i] + 12 * 3600_000;
-    if (tMs >= dayStart && tMs < dayEnd) return tMs >= sunrise[i] && tMs <= sunset[i];
-  }
-  return null;
+  const sun = sunTimes(series, tMs);
+  return sun ? tMs >= sun.sunrise && tMs <= sun.sunset : null;
 }
 
 /**

@@ -123,8 +123,28 @@
         </button>
         <p class="message" id="message" role="alert" hidden></p>
 
+        <div class="share-quick" id="share-quick" hidden>
+          <button type="button" class="secondary" id="share-run" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4M21 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm12 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="shareRun">Compartir enlace</span>
+          </button>
+          <label class="check">
+            <input type="checkbox" id="share-hide" checked>
+            <span data-i18n="shareHide">Ocultar los primeros y últimos 500 m</span>
+          </label>
+          <p class="share-status" id="share-status" aria-live="polite" hidden></p>
+          <input type="text" class="share-link" id="share-link" readonly hidden aria-label="Enlace">
+        </div>
+
         <details class="advanced" id="advanced">
           <summary data-i18n="advanced">Más opciones</summary>
+
+          <section class="adv-block" aria-labelledby="h-stops">
+            <h3 class="adv-title" id="h-stops" data-i18n="stopsTitle">Paradas</h3>
+            <p class="adv-hint" data-i18n="stopsHint">Café, avituallamiento… Indica en qué kilómetro paras y cuántos minutos.</p>
+            <ul class="stops" id="stops"></ul>
+            <button type="button" class="link-btn stop-add" id="stop-add" data-i18n="stopAdd">+ Añadir parada</button>
+          </section>
 
           <section class="adv-block" aria-labelledby="h-best">
             <h3 class="adv-title" id="h-best" data-i18n="bestTitle">Mejor hora de salida</h3>
@@ -148,25 +168,15 @@
                 <option value="temp" data-i18n="prioTemp">Frío o calor</option>
               </select>
             </label>
+            <label class="check">
+              <input type="checkbox" id="best-days">
+              <span data-i18n="bestDays">Comparar la misma franja en los próximos días</span>
+            </label>
             <button type="button" class="secondary" id="best-run" disabled>
               <span class="spinner" aria-hidden="true"></span>
               <span data-i18n="bestRun">Comparar horas</span>
             </button>
             <div class="best" id="best-results" aria-live="polite" hidden></div>
-          </section>
-
-          <section class="adv-block" aria-labelledby="h-share">
-            <h3 class="adv-title" id="h-share" data-i18n="shareTitle">Compartir ruta</h3>
-            <p class="adv-hint" data-i18n="shareHint">Crea un enlace con la ruta, la hora de salida y el ritmo. Quien lo abra verá el pronóstico actualizado.</p>
-            <label class="check">
-              <input type="checkbox" id="share-hide" checked>
-              <span data-i18n="shareHide">Ocultar los primeros y últimos 500 m</span>
-            </label>
-            <button type="button" class="secondary" id="share-run" disabled>
-              <span data-i18n="shareRun">Compartir enlace</span>
-            </button>
-            <p class="share-status" id="share-status" aria-live="polite" hidden></p>
-            <input type="text" class="share-link" id="share-link" readonly hidden aria-label="Enlace">
           </section>
 
           <section class="adv-block" aria-labelledby="h-export">
@@ -189,6 +199,7 @@
 
       <section class="block results" id="results" hidden aria-labelledby="h-summary">
         <h2 class="visually-hidden" id="h-summary" data-i18n="windShare"></h2>
+        <p class="verdict" id="verdict" aria-live="polite"></p>
         <dl class="figures figures-4" id="summary"></dl>
 
         <div class="share">
@@ -214,7 +225,7 @@
         </div>
       </section>
 
-      <p class="about-link"><a href="../#como-funciona" data-i18n="aboutLink">Qué es y cómo funciona</a></p>
+      <p class="about-link"><a href="../#como-funciona" data-i18n="aboutLink">Qué es y cómo funciona</a> · <button type="button" class="link-btn" id="news-open" data-i18n="newsLink">Novedades</button></p>
 
       <footer class="credits">
         <p id="credits"></p>
@@ -232,5 +243,13 @@
       </section>
     </main>
   </div>
+
+  <dialog class="news" id="news" aria-labelledby="news-title">
+    <form method="dialog" class="news-box">
+      <h2 class="news-title" id="news-title" data-i18n="newsTitle">Novedades</h2>
+      <div class="news-list" id="news-list"></div>
+      <button class="primary" data-i18n="newsOk">Entendido</button>
+    </form>
+  </dialog>
 </body>
 </html>

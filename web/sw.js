@@ -5,6 +5,8 @@
  * - Pronóstico de Open-Meteo: primero la red; sin conexión, la última respuesta
  *   guardada para esa misma ruta y día.
  * - Teselas del mapa: primero la copia guardada (cambian poco) y, si no está, la red.
+ * - GPX compartido desde otra app (share_target del manifiesto): se guarda en la caché
+ *   y se abre la app con ?shared, que lo lee de ahí y lo borra.
  *
  * Al añadir un archivo a web/, añádelo también a PRECACHE (lo comprueba test/pwa.test.js).
  */
@@ -13,6 +15,7 @@ const VERSION = 'v1';
 const SHELL = `gwr-shell-${VERSION}`;
 const WEATHER = 'gwr-weather';
 const TILES = 'gwr-tiles';
+const SHARE = 'gwr-share'; // Igual que en js/app.js
 const MAX_WEATHER = 30;
 const MAX_TILES = 600;
 
@@ -45,16 +48,20 @@ const PRECACHE = [
   './js/lib/geo.js',
   './js/lib/gpx-export.js',
   './js/lib/gpx.js',
+  './js/lib/news.js',
+  './js/lib/pacing.js',
   './js/lib/plan.js',
   './js/lib/recent.js',
   './js/lib/share.js',
   './js/lib/tiles.js',
   './js/lib/timing.js',
+  './js/lib/verdict.js',
   './js/lib/weather.js',
   './js/lib/wind.js',
   './js/ui/export-image.js',
   './js/ui/format.js',
   './js/ui/map.js',
+  './js/ui/news.js',
   './js/ui/profile.js',
   './js/ui/start-picker.js',
   './vendor/leaflet/leaflet.js',
@@ -123,10 +130,28 @@ async function cacheFirst(request, cacheName, max) {
   return response;
 }
 
+// Recibe el GPX que llega por «Compartir» (Android) y abre la app para cargarlo.
+async function receiveShare(request) {
+  try {
+    const file = (await request.formData()).get('gpx');
+    if (file && typeof file !== 'string') {
+      const cache = await caches.open(SHARE);
+      await cache.put('shared.gpx', new Response(file, { headers: { 'X-File-Name': encodeURIComponent(file.name || 'ruta.gpx') } }));
+    }
+  } catch {
+    /* sin archivo: la app se abre vacía */
+  }
+  return Response.redirect(new URL('./app/?shared', self.location).href, 303);
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== 'GET') return;
   const url = new URL(request.url);
+  if (request.method === 'POST' && url.searchParams.has('share-target')) {
+    event.respondWith(receiveShare(request));
+    return;
+  }
+  if (request.method !== 'GET') return;
 
   if (url.origin === self.location.origin) {
     const fallbackUrl = request.mode === 'navigate' ? new URL(url.pathname.includes('/app/') ? './app/' : './', self.location).href : undefined;

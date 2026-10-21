@@ -87,7 +87,13 @@ export function decodePolyline(str) {
 
 // --- Simplificación (Douglas-Peucker) y recorte de los extremos ---
 
-/** Distancia en metros de p al segmento a-b (proyección local equirectangular). */
+/**
+ * Distancia en metros de p al segmento a-b (proyección local equirectangular).
+ * Si los tres tienen altitud, cuenta también lo que se perdería de altitud al
+ * quitar p (dividido por ELE_FACTOR): sin esto, una recta que sube y baja se
+ * quedaría en sus dos extremos y el ritmo por pendiente no vería el puerto.
+ */
+const ELE_FACTOR = 2; // 10 m de altitud valen como 5 m en planta
 function segDistance(p, a, b) {
   const k = Math.cos((a.lat * Math.PI) / 180) * 111320;
   const ax = a.lon * k;
@@ -98,7 +104,9 @@ function segDistance(p, a, b) {
   const py = p.lat * 110540 - ay;
   const len2 = bx * bx + by * by;
   const t = len2 ? Math.max(0, Math.min(1, (px * bx + py * by) / len2)) : 0;
-  return Math.hypot(px - t * bx, py - t * by);
+  const flat = Math.hypot(px - t * bx, py - t * by);
+  if (![p.ele, a.ele, b.ele].every(Number.isFinite)) return flat;
+  return Math.max(flat, Math.abs(p.ele - (a.ele + t * (b.ele - a.ele))) / ELE_FACTOR);
 }
 
 /** Simplifica la ruta manteniendo cada punto a menos de `tolerance` metros del original. */
@@ -167,10 +175,10 @@ export class ShareError extends Error {
  * Genera el fragmento del enlace (sin "#") para una ruta.
  * Ajusta la simplificación hasta que el fragmento cabe en `maxLength` caracteres.
  * @param {object} track Resultado de buildTrack.
- * @param {{name?, startMs?, sport?, speedKmh?, hideMeters?, maxLength?}} opts
+ * @param {{name?, startMs?, sport?, speedKmh?, stops?: {km, min}[], hideMeters?, maxLength?}} opts
  */
 export async function encodeShare(track, opts = {}) {
-  const { name = '', startMs, sport, speedKmh, hideMeters = 500, maxLength = 7000, tolerance: startTolerance = 5 } = opts;
+  const { name = '', startMs, sport, speedKmh, stops, hideMeters = 500, maxLength = 7000, tolerance: startTolerance = 5 } = opts;
   const base = trimEnds(track, hideMeters);
   let tolerance = startTolerance;
   for (let attempt = 0; attempt < 12; attempt++) {
@@ -181,6 +189,9 @@ export async function encodeShare(track, opts = {}) {
     if (Number.isFinite(startMs)) payload.t = Math.round(startMs / 60_000) * 60_000;
     if (sport) payload.s = sport;
     if (speedKmh > 0) payload.k = Math.round(speedKmh * 100) / 100;
+    // Paradas como [km con un decimal, minutos].
+    const st = (stops || []).filter((s) => s.min > 0 && s.km >= 0).map((s) => [Math.round(s.km * 10) / 10, Math.round(s.min)]);
+    if (st.length) payload.m = st;
     const json = new TextEncoder().encode(JSON.stringify(payload));
     const hash = `r=${toBase64Url(await pipe(json, new CompressionStream('deflate-raw')))}`;
     if (hash.length <= maxLength) return { hash, points: pts.length, tolerance };
@@ -191,7 +202,7 @@ export async function encodeShare(track, opts = {}) {
 
 /**
  * Lee un fragmento "r=…" (con o sin "#"). Devuelve null si no hay ruta compartida.
- * @returns {Promise<{name, points, startMs, sport, speedKmh}|null>}
+ * @returns {Promise<{name, points, startMs, sport, speedKmh, stops}|null>}
  */
 export async function decodeShare(hash) {
   const m = String(hash || '').match(/(?:^#?|&)r=([A-Za-z0-9_-]+)/);
@@ -214,6 +225,7 @@ export async function decodeShare(hash) {
     startMs: Number.isFinite(data.t) ? data.t : null,
     sport: data.s === 'run' ? 'run' : data.s === 'bike' ? 'bike' : null,
     speedKmh: data.k > 0 ? data.k : null,
+    stops: Array.isArray(data.m) ? data.m.filter((s) => Array.isArray(s) && s[1] > 0).map(([km, min]) => ({ km, min })) : [],
   };
 }
 
