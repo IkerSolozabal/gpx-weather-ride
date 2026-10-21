@@ -129,3 +129,15 @@ test('con prioridad viento gana 0 % en contra aunque otra hora tenga mucho vient
   assert.ok(calm.score < early.score, `0 % en contra (${calm.score.toFixed(2)}) debe ganar a 30 % (${early.score.toFixed(2)})`);
   assert.ok(list.find((c) => c.best).headShare < 0.05);
 });
+
+test('sameHourDays: la hora elegida en los próximos días, sin las pasadas ni las de fuera del pronóstico', async () => {
+  const { addDays, atTime, sameHourDays } = await import('../web/js/lib/beststart.js');
+  const start = atTime(Date.parse('2026-10-20T12:00:00Z'), '10:00');
+  const days = sameHourDays(start, { days: 7, nowMs: start - 1, limitMs: addDays(start, 4) + 3 * H, durationMs: 3 * H });
+  assert.equal(days.length, 5); // del día elegido al cuarto siguiente
+  assert.ok(days.every((d, k) => d.fromMs === d.toMs && new Date(d.fromMs).getHours() === 10 && d.fromMs === addDays(start, k)));
+  // Si la hora ya pasó hoy, empieza mañana.
+  assert.equal(sameHourDays(start, { days: 3, nowMs: start + 1, limitMs: Infinity, durationMs: H })[0].fromMs, addDays(start, 1));
+  assert.ok(Number.isNaN(atTime(start, '')));
+  assert.equal(new Date(atTime(start, '07:30')).getMinutes(), 30);
+});

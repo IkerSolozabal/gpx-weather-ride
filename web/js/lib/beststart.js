@@ -159,6 +159,37 @@ function markBest(list) {
   return list;
 }
 
+/** El mismo día que `baseMs` a la hora «HH:MM» (hora local). NaN si la hora no es válida. */
+export function atTime(baseMs, hhmm) {
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return NaN;
+  const d = new Date(baseMs);
+  d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  return d.getTime();
+}
+
+/** El mismo reloj local `days` días después (respeta los cambios de hora). */
+export function addDays(ms, days) {
+  const d = new Date(ms);
+  d.setDate(d.getDate() + days);
+  return d.getTime();
+}
+
+/**
+ * La misma hora de salida en los próximos días (incluido el elegido), para compararlos.
+ * Sin las salidas ya pasadas ni las que acabarían fuera del pronóstico.
+ * @returns {{fromMs: number, toMs: number}[]} Una «franja» de un solo instante por día (para rankDays).
+ */
+export function sameHourDays(startMs, { days = 7, nowMs, limitMs, durationMs }) {
+  const out = [];
+  for (let k = 0; k < days; k++) {
+    const t = addDays(startMs, k);
+    if (t + durationMs > limitMs) break;
+    if (t >= nowMs) out.push({ fromMs: t, toMs: t });
+  }
+  return out;
+}
+
 /**
  * Mejor salida de cada día: la misma franja horaria en varios días.
  * @param {{days: {fromMs: number, toMs: number}[]}} opts Lo demás, como en rankStarts.

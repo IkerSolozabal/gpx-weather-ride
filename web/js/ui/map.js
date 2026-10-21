@@ -1,4 +1,4 @@
-/** Mapa con Leaflet: ruta coloreada por viento, flechas, puntos kilométricos y salida/llegada. */
+/** Mapa con Leaflet: ruta coloreada por viento, flechas, puntos kilométricos, paradas y salida/llegada. */
 
 import { t, weatherLabel } from '../i18n.js';
 import { compass, windSide, WIND } from '../lib/wind.js';
@@ -10,6 +10,13 @@ export function relLabel(rel, course, windDir) {
   if (!rel) return t('unknown');
   if (rel.category === WIND.CROSS) return windSide(course, windDir) === 'right' ? t('crossRight') : t('crossLeft');
   return t(rel.category);
+}
+
+/** Popup de una parada: llegada, salida y minutos. */
+export function stopPopup(stop, n, { withDay }) {
+  const leave = stop.arriveMs + stop.ms;
+  return `<p class="pop-title">${t('stopTitle', { n, km: f.kmMark(stop.d) })}</p>
+    <p>${t('stopTimes', { arrive: f.time(stop.arriveMs, { withDay }), leave: f.time(leave, { withDay }), min: f.span(stop.ms) })}</p>`;
 }
 
 /** HTML del detalle de un punto (popup del mapa). */
@@ -41,6 +48,7 @@ export function createMap(el, cfg) {
   const arrows = L().layerGroup().addTo(map);
   const kms = L().layerGroup().addTo(map);
   const flags = L().layerGroup().addTo(map);
+  const stops = L().layerGroup().addTo(map);
   let layersControl = null;
   let cursor = null;
   const kmMarkers = [];
@@ -67,7 +75,7 @@ export function createMap(el, cfg) {
   map.on('zoomend', thin);
 
   function resetOverlays() {
-    for (const g of [base, route, arrows, kms, flags]) g.clearLayers();
+    for (const g of [base, route, arrows, kms, flags, stops]) g.clearLayers();
     kmMarkers.length = 0;
     arrowMarkers = [];
     if (cursor) cursor.remove();
@@ -145,6 +153,14 @@ export function createMap(el, cfg) {
     });
 
     addFlags(track.points[0], track.points[track.points.length - 1], plan);
+    // Paradas: el mismo número que en la imagen para compartir.
+    (plan.stops || []).forEach((st, i) => {
+      const icon = L().divIcon({ className: 'stop-marker', html: String(i + 1), iconSize: [24, 24], iconAnchor: [12, 12] });
+      L()
+        .marker([st.lat, st.lon], { icon, zIndexOffset: 800, title: t('stopTitle', { n: i + 1, km: f.kmMark(st.d) }) })
+        .bindPopup(stopPopup(st, i + 1, { withDay }))
+        .addTo(stops);
+    });
     addLayersControl();
     // Espera a que el panel de resultados ocupe su sitio antes de encuadrar.
     requestAnimationFrame(() => {

@@ -44,7 +44,8 @@ El tiempo total no cambia (distancia ÷ media indicada); lo que cambia es cómo 
 
 - **Bici:** modelo de potencia (gravedad, rodadura y aire; CdA 0,4 m² y 85 kg con la bici). Se busca la potencia por kg con la que, en esta ruta, sale justo la media indicada. En las subidas se aprieta algo más (hasta +20 % al 10 %) y en las bajadas se limita a 45 km/h. En un puerto de 10 km al 7 %, entre una media de 22 y una de 26 km/h hay unos 11 minutos de diferencia; en 10 km llanos, menos de 2.
 - **Carrera:** coste energético de correr en pendiente (Minetti et al., 2002), la base del «ritmo ajustado a la pendiente» de Strava.
-- Sin altitudes en el GPX, velocidad constante.
+- Si el GPX no trae altitud, se pide a la API de altitud de Open-Meteo (modelo de terreno de 90 m, mismo servidor que el pronóstico, así que no cambia la CSP): un punto cada 100 m, como mucho 500, en grupos de 100 (de 1 a 5 consultas). El desnivel aparece como «estimado» y la ruta se guarda en recientes ya con altitud. Sin conexión, velocidad constante. La lógica está en `web/js/lib/elevation.js`.
+- **Viento (bici):** al calcular la meteo, cada tramo se recorre con el viento que hace al pasar por él: con el nivel ya deducido, de cara se va más lento y a favor más rápido, así que la llegada puede adelantarse o retrasarse respecto a la estimación sin viento. El viento del pronóstico es a 10 m de altura; a la altura del ciclista se toma un 65 %, y contra el viento se aprieta algo más (hasta +10 % con 20 km/h de cara). Con 10 km/h de cara, una media de 22 km/h en llano baja a unos 19. Si el viento cambia la llegada 5 minutos o más, el resumen lo dice. «¿Cuándo salgo?» compara sin este ajuste (ya penaliza el viento de cara por su cuenta). Corriendo no se aplica.
 
 Las pendientes se miden cada 200 m para no sumar el ruido del GPS. La lógica está en `web/js/lib/pacing.js`.
 
@@ -69,12 +70,20 @@ Cada parada lleva su **punto kilométrico** y sus **minutos**, y se pueden añad
 - Dependen de la ruta, así que no se guardan como ajuste: se vacían al cargar otra ruta.
 - Al recorrer la ruta en sentido contrario siguen en el mismo sitio (su km se cuenta desde el otro extremo).
 - Viajan en los enlaces compartidos.
+- Al calcular la meteo, cada parada aparece en el mapa con su número; al pulsarla dice a qué hora llegas y a qué hora sales. En la imagen para compartir salen con el mismo número en el mapa y en una línea bajo el resumen («Paradas ① km 8 · 10:14 · 10 min …»).
 
 La lógica está en `normalizeStops` y `paceProfile` (`web/js/lib/pacing.js`).
 
-### Mejor hora de salida
+### Mejor momento para salir
 
-Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una franja del día elegido y puntúa cada una (menos es mejor):
+Dos comparaciones con un solo botón, **Comparar**:
+
+1. **Horas del día de salida:** entre «Desde» y «Hasta» (se recuerdan entre visitas), una salida cada `BEST_START_STEP_MIN` minutos (30 por defecto), sin las que ya han pasado.
+2. **La misma hora, otros días:** la hora de salida del formulario ese día y los 6 siguientes (hasta donde llegue el pronóstico), para ver si te conviene más otro día a la misma hora.
+
+Cada lista marca la mejor y muestra temperatura, % de viento en contra, lluvia y 🌙 si parte de la ruta va de noche. Todo sale de una sola consulta a Open-Meteo, con el ritmo por pendiente y las paradas; al pulsar una hora o un día se calcula su ruta.
+
+Cada salida se puntúa así (menos es mejor):
 
 | Factor | Cómo se mide | Vale 1 cuando… |
 | --- | --- | --- |
@@ -83,27 +92,25 @@ Prueba salidas cada `BEST_START_STEP_MIN` minutos (30 por defecto) dentro de una
 | Temperatura | Grados de sensación térmica fuera de `TEMP_COMFORT_MIN`–`TEMP_COMFORT_MAX` | 8 °C fuera del rango |
 | Noche | Parte de la ruta antes del amanecer o después del anochecer | La mitad de la ruta |
 
-Con **Comparar la misma franja en los próximos días** se repite la franja cada día hasta donde llega el pronóstico (como mucho una semana) y se muestra la mejor salida de cada día, con el mejor día marcado. Viene bien para escoger día en una salida larga o un viaje en bici.
-
 Con «Qué evitar sobre todo» el factor elegido (viento, lluvia o temperatura) pesa 3 y los otros dos 0,5; «Un poco de todo» los pesa igual. La noche pesa siempre 1. Así, con «Viento en contra», una salida con 0 % en contra gana a otra con 30 % en contra aunque esta tenga mucho viento a favor el resto del camino. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
 
-### Compartir ruta
+## Compartir
 
-El botón **Compartir enlace** está a la vista, justo debajo de «Ver la meteo de la ruta», en cuanto hay una ruta cargada (no dentro de «Más opciones»). Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte, la velocidad y las paradas. No hay servidor ni base de datos:
+Debajo de «Ver la meteo de la ruta», en cuanto hay una ruta cargada, una fila **Compartir: Enlace · Imagen · GPX** reúne las tres formas de compartir (la imagen y el GPX se activan al calcular la meteo). **Enlace** genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte, la velocidad y las paradas. No hay servidor ni base de datos:
 
 - La ruta se simplifica (Douglas-Peucker, unos 5 m de tolerancia en planta y 10 m en altitud, para no perder los puertos), se codifica como polilínea con altitudes y se comprime (deflate + base64url). Una ruta de 70 km ocupa unos 1,7 KB; si el enlace pasa de 7.000 caracteres, se simplifica más.
 - Todo va detrás de `#`, que el navegador no envía a ningún servidor: ni GitHub ni nadie ve la ruta.
-- Por defecto se quitan los primeros y últimos 500 m para no revelar dónde vive quien comparte (salvo en rutas de menos de 2 km).
+- Siempre se quitan los primeros y últimos 500 m para no revelar dónde vive quien comparte (salvo en rutas de menos de 2 km).
 - Quien abre el enlace ve la ruta y el pronóstico actualizado en ese momento. Si la hora de salida ya pasó, se pone la próxima hora.
 
 La lógica está en `web/js/lib/share.js`.
 
-### Exportar
+### Imagen y GPX
 
-Necesita haber calculado la meteo de la ruta.
+En la misma fila de compartir. Necesitan haber calculado la meteo de la ruta; hasta entonces están desactivados.
 
-- **Crear imagen**: un PNG vertical de 1080×1350 (el formato de las historias y de WhatsApp) con cinco zonas: cabecera con las cifras (fecha, distancia, desnivel, salida y llegada, temperatura, viento, lluvia y reparto del viento), el resumen en frases que se ve en la app (hasta tres líneas), mapa con la ruta coloreada y los puntos kilométricos, perfil, y horas de paso con temperatura y viento. En el móvil abre el menú de compartir del sistema; en el ordenador se descarga. Se dibuja en el navegador (`web/js/ui/export-image.js`); el fondo del mapa usa las mismas teselas que la app, que deben permitir CORS (OpenStreetMap lo permite). Si no se pueden cargar, la imagen sale con la ruta sobre fondo liso.
-- **GPX con avisos**: el track y un waypoint en cada punto kilométrico con la hora de paso, la temperatura, el viento, las rachas y la lluvia. Los puntos con lluvia ≥ 50 %, rachas ≥ 45 km/h o viento en contra ≥ 20 km/h llevan «!» y el símbolo de peligro, para verlos en el Garmin o el Wahoo (`web/js/lib/gpx-export.js`).
+- **Imagen**: un PNG vertical de 1080×1350 (el formato de las historias y de WhatsApp) con cinco zonas: cabecera con las cifras (fecha, distancia, desnivel, salida y llegada, temperatura, viento, lluvia y reparto del viento), el resumen en frases que se ve en la app (hasta tres líneas), las paradas previstas (si las hay), mapa con la ruta coloreada y los puntos kilométricos, perfil, y horas de paso con temperatura y viento. En el móvil abre el menú de compartir del sistema; en el ordenador se descarga. Se dibuja en el navegador (`web/js/ui/export-image.js`); el fondo del mapa usa las mismas teselas que la app, que deben permitir CORS (OpenStreetMap lo permite). Si no se pueden cargar, la imagen sale con la ruta sobre fondo liso.
+- **GPX** (con avisos): el track y un waypoint en cada punto kilométrico con la hora de paso, la temperatura, el viento, las rachas y la lluvia. Los puntos con lluvia ≥ 50 %, rachas ≥ 45 km/h o viento en contra ≥ 20 km/h llevan «!» y el símbolo de peligro, para verlos en el Garmin o el Wahoo (`web/js/lib/gpx-export.js`).
 
 ## App instalable (PWA)
 
@@ -362,7 +369,7 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 | Mapa | `MAP_TILE_URL`, `MAP_TILE_ATTRIBUTION`, `MAP_MAX_ZOOM` |
 | Cálculo | `ROUTE_SAMPLE_KM`, `ROUTE_MAX_SAMPLES`, `ROUTE_SEGMENT_M`, `GPX_MAX_FILE_MB` |
 | Formulario | `DEFAULT_SPORT`, `BIKE_SPEED_KMH`, `RUN_PACE`, `BIKE_MARKER_KM`, `RUN_MARKER_KM` |
-| Mejor hora de salida | `BEST_START_STEP_MIN`, `TEMP_COMFORT_MIN`, `TEMP_COMFORT_MAX` |
+| Mejor momento para salir | `BEST_START_STEP_MIN`, `TEMP_COMFORT_MIN`, `TEMP_COMFORT_MAX` |
 | Viento | `WIND_CALM_KMH`, `WIND_HEAD_ANGLE`, `WIND_TAIL_ANGLE` |
 | Seguridad | `CSP_EXTRA_CONNECT` |
 | Solo GitHub Pages | `SITE_URL` (por defecto `https://gpx.sogra.es`, para canonical y sitemap), `PAGES_CNAME` (opcional, escribe el archivo `CNAME`) |

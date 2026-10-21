@@ -89,32 +89,13 @@ export function normalizeStops(stops, total) {
 }
 
 /**
- * Tiempo de paso según la distancia, con la pendiente y las paradas.
- * @param {object} track Resultado de buildTrack.
- * @param {{sport: 'bike'|'run', speedKmh: number, stops?: {km: number, min: number}[], stepM?: number}} opts
- * @returns {{offset: (d:number) => number, movingMs: number, stopMs: number, totalMs: number, stops: {d: number, ms: number}[], wkg: number|null}}
- *   offset(d): ms desde la salida hasta pasar por la distancia d (después de las paradas anteriores).
+ * Perfil de tiempos a partir de lo que se tarda en cada tramo (ms) y las paradas.
+ * offset(d): ms desde la salida hasta pasar por la distancia d (después de las paradas anteriores).
  */
-export function paceProfile(track, { sport, speedKmh, stops = [], stepM = 200 }) {
-  if (!(speedKmh > 0)) throw new Error('speed must be > 0');
-  const movingMs = (track.total / 1000 / speedKmh) * 3600_000;
-  const segs = track.total > 0 ? gradeProfile(track, stepM) : [];
-  const flat = segs.every((s) => s.grade === 0);
-
-  let wkg = null;
-  let weights; // tiempo relativo de cada tramo
-  if (flat) weights = segs.map((s) => s.len);
-  else if (sport === 'run') weights = segs.map((s) => s.len * runCost(s.grade));
-  else {
-    wkg = bikeLevel(segs, movingMs / 1000);
-    weights = segs.map((s) => s.len / bikeSpeed(wkg, s.grade));
-  }
-  // Se escala para que el total sea exactamente distancia ÷ media.
-  const sum = weights.reduce((a, b) => a + b, 0) || 1;
+function timeProfile(track, segs, durations, stopList, extra) {
   const cum = [0];
-  for (const w of weights) cum.push(cum[cum.length - 1] + (w / sum) * movingMs);
-
-  const stopList = normalizeStops(stops, track.total);
+  for (const ms of durations) cum.push(cum[cum.length - 1] + ms);
+  const movingMs = cum[cum.length - 1];
   const stopMs = stopList.reduce((a, s) => a + s.ms, 0);
   // Una parada en el km d cuenta para quien pasa después; la de la meta, para la llegada.
   const stopped = (d) => stopList.reduce((a, s) => a + (d > s.d || (d >= track.total && s.d >= track.total) ? s.ms : 0), 0);
@@ -133,12 +114,85 @@ export function paceProfile(track, { sport, speedKmh, stops = [], stepM = 200 })
     return cum[lo] + ((d - s.from) / s.len) * (cum[lo + 1] - cum[lo]);
   }
 
-  return {
-    offset: (d) => moving(d) + stopped(d),
-    movingMs,
-    stopMs,
-    totalMs: movingMs + stopMs,
-    stops: stopList,
-    wkg,
-  };
+  return { offset: (d) => moving(d) + stopped(d), movingMs, stopMs, totalMs: movingMs + stopMs, stops: stopList, segs, ...extra };
+}
+
+/**
+ * Tiempo de paso según la distancia, con la pendiente y las paradas.
+ * @param {object} track Resultado de buildTrack.
+ * @param {{sport: 'bike'|'run', speedKmh: number, stops?: {km: number, min: number}[], stepM?: number}} opts
+ * @returns {{offset: (d:number) => number, movingMs: number, stopMs: number, totalMs: number, stops: {d: number, ms: number}[], wkg: number|null}}
+ *   wkg: nivel en bici (null corriendo). El total en movimiento es exactamente distancia ÷ media.
+ */
+export function paceProfile(track, { sport, speedKmh, stops = [], stepM = 200 }) {
+  if (!(speedKmh > 0)) throw new Error('speed must be > 0');
+  const movingMs = (track.total / 1000 / speedKmh) * 3600_000;
+  const segs = track.total > 0 ? gradeProfile(track, stepM) : [];
+  const flat = segs.every((s) => s.grade === 0);
+
+  // En bici el nivel hace falta también en llano: con él se calcula el efecto del viento.
+  const wkg = sport === 'run' || !segs.length ? null : bikeLevel(segs, movingMs / 1000);
+  let weights; // tiempo relativo de cada tramo
+  if (flat) weights = segs.map((s) => s.len);
+  else if (sport === 'run') weights = segs.map((s) => s.len * runCost(s.grade));
+  else weights = segs.map((s) => s.len / bikeSpeed(wkg, s.grade));
+  // Se escala para que el total sea exactamente distancia ÷ media.
+  const sum = weights.reduce((a, b) => a + b, 0) || 1;
+  const durations = weights.map((w) => (w / sum) * movingMs);
+  // scale: ms por unidad de peso; con él, windPace sin viento da exactamente lo mismo.
+  const scale = flat || sport === 'run' ? null : movingMs / sum;
+  return timeProfile(track, segs, durations, normalizeStops(stops, track.total), { wkg, scale });
+}
+
+/** El pronóstico da el viento a 10 m de altura; a la altura del ciclista sopla un tercio menos. */
+const WIND_AT_RIDER = 0.65;
+
+/**
+ * Velocidad en bici (m/s) con viento: `headMs` es el viento de cara a 10 m, en m/s (negativo, a favor).
+ * La resistencia del aire depende de la velocidad respecto al aire. Contra el viento se aprieta
+ * algo más, como en las subidas: hasta +10 % con 20 km/h de cara.
+ */
+export function bikeSpeedWind(wkg, grade, headMs) {
+  if (!headMs) return bikeSpeed(wkg, grade);
+  const angle = Math.atan(grade);
+  const a = G * (Math.sin(angle) + CRR * Math.cos(angle));
+  const wind = headMs * WIND_AT_RIDER;
+  const power = wkg * climbEffort(grade) * (1 + 0.1 * Math.max(0, Math.min(1, headMs / (20 / 3.6))));
+  let lo = 0;
+  let hi = 40;
+  for (let k = 0; k < 50; k++) {
+    const v = (lo + hi) / 2;
+    const air = v + wind;
+    if (a * v + AERO * air * Math.abs(air) * v < power) lo = v;
+    else hi = v;
+  }
+  return Math.min(BIKE_LIMITS.maxKmh / 3.6, Math.max(BIKE_LIMITS.minKmh / 3.6, lo));
+}
+
+/**
+ * El mismo ritmo con el viento de cada tramo (solo bici): con el nivel deducido sin viento,
+ * cada tramo se recorre a la velocidad que da esa potencia con el aire de cara o a favor.
+ * El total ya no es distancia ÷ media: el viento retrasa o adelanta. Corriendo, el efecto
+ * es pequeño y se deja igual.
+ * @param {object} base Resultado de paceProfile.
+ * @param {(d: number, t: number) => number|null} headAt Viento de cara en km/h (negativo, a favor) en la distancia d y el instante t.
+ * @param {number} startMs Hora de salida, para saber qué viento hay al pasar por cada tramo.
+ * @returns El perfil de paceProfile más windDelayMs (positivo si el viento retrasa).
+ */
+export function windPace(track, base, headAt, startMs) {
+  if (base.wkg === null) return { ...base, windDelayMs: 0 };
+  // En llano el reparto es constante: la escala sale de la velocidad sin viento.
+  const scale = base.scale ?? base.movingMs / base.segs.reduce((a, s) => a + s.len / bikeSpeed(base.wkg, s.grade), 0);
+  const durations = [];
+  let elapsed = 0;
+  for (const s of base.segs) {
+    const mid = s.from + s.len / 2;
+    const stopped = base.stops.reduce((a, st) => a + (mid > st.d ? st.ms : 0), 0);
+    const head = headAt(mid, startMs + elapsed + stopped) || 0;
+    const ms = (s.len / bikeSpeedWind(base.wkg, s.grade, head / 3.6)) * scale;
+    durations.push(ms);
+    elapsed += ms;
+  }
+  const profile = timeProfile(track, base.segs, durations, base.stops, { wkg: base.wkg, scale: base.scale });
+  return { ...profile, windDelayMs: profile.movingMs - base.movingMs };
 }
