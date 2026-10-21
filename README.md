@@ -357,7 +357,7 @@ La lista completa, con sus valores por defecto, está comentada en [`.env.pro.ex
 
 | Grupo | Variables |
 | --- | --- |
-| General | `APP_NAME`, `APP_DEFAULT_LANG`, `ROBOTS_INDEX` |
+| General | `APP_NAME`, `APP_DEFAULT_LANG`, `ROBOTS_INDEX`, `NEWS_ENABLED` |
 | Meteo | `WEATHER_API_URL`, `WEATHER_API_KEY`, `WEATHER_MODELS`, `WEATHER_FORECAST_DAYS` |
 | Mapa | `MAP_TILE_URL`, `MAP_TILE_ATTRIBUTION`, `MAP_MAX_ZOOM` |
 | Cálculo | `ROUTE_SAMPLE_KM`, `ROUTE_MAX_SAMPLES`, `ROUTE_SEGMENT_M`, `GPX_MAX_FILE_MB` |
