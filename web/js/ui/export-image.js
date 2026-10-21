@@ -1,7 +1,7 @@
 /**
- * Imagen para compartir (PNG 1080×1350, formato vertical de móvil) con cinco zonas:
- * cabecera con las cifras, el resumen en frases (si lo hay), mapa con la ruta coloreada
- * por el viento, perfil y horas de paso.
+ * Imagen para compartir (PNG 1080×1350, formato vertical de móvil): cabecera con las cifras,
+ * el resumen en frases y las paradas (si las hay), mapa con la ruta coloreada por el viento
+ * y las paradas numeradas, perfil y horas de paso.
  * Se dibuja en un canvas sin Leaflet; las teselas del mapa se piden con CORS.
  */
 
@@ -91,6 +91,59 @@ function drawVerdict(ctx, text, { x, y, w }) {
   ctx.fillRect(x, y, 6, h);
   lines.forEach((l, i) => ctx.fillText(l, x + 26, y + 13 + lh * (i + 1) - 10));
   return h;
+}
+
+/** Círculo oscuro con el número de la parada (el mismo que en el mapa de la app). */
+function stopBadge(ctx, x, y, n, r = 15) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = C.ink;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 ${Math.round(r * 1.25)}px ${FIG}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(n), x, y + 1);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
+/**
+ * Paradas previstas: «Paradas ① km 8 · 10:19 · 10 min ② …», en una o dos líneas.
+ * Devuelve la altura ocupada (0 si no hay paradas).
+ */
+function drawStops(ctx, stops, { withDay }, { x, y, w }) {
+  if (!stops || !stops.length) return 0;
+  const lh = 40;
+  ctx.font = `600 24px ${FIG}`;
+  ctx.fillStyle = C.muted;
+  ctx.textBaseline = 'middle';
+  const label = t('stopsImage');
+  ctx.fillText(label, x, y + lh / 2);
+  let cx = x + ctx.measureText(label).width + 18;
+  let cy = y + lh / 2;
+  let lines = 1;
+  ctx.font = `500 24px ${TXT}`;
+  stops.forEach((st, i) => {
+    const text = `km ${f.kmMark(st.d)} · ${f.time(st.arriveMs, { withDay })} · ${f.span(st.ms)}`;
+    const width = 30 + 10 + ctx.measureText(text).width + 28;
+    if (cx + width - 28 > x + w && cx > x + 200 && lines < 2) {
+      lines += 1;
+      cx = x;
+      cy += lh;
+    }
+    stopBadge(ctx, cx + 15, cy, i + 1, 14);
+    ctx.font = `500 24px ${TXT}`;
+    ctx.fillStyle = C.ink;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(fitText(ctx, text, x + w - cx - 40), cx + 40, cy + 1);
+    cx += width;
+  });
+  ctx.textBaseline = 'alphabetic';
+  return lines * lh;
 }
 
 /** Flecha que apunta hacia donde sopla el viento. */
@@ -263,6 +316,7 @@ async function drawMap(ctx, { track, plan, tileTemplate }, box) {
   };
   flag(track.points[0], t('startPoint'), C.tail, '#fff', -38);
   flag(track.points[track.points.length - 1], t('finishPoint'), C.ink, '#fff', 8);
+  (plan.stops || []).forEach((st, i) => stopBadge(ctx, ...pt(st), i + 1));
   ctx.restore();
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -412,7 +466,9 @@ export async function renderShareImage(data) {
   drawHeader(ctx, data);
   // El resumen va entre la cabecera y el mapa, que se acorta lo que ocupe.
   const vh = drawVerdict(ctx, data.verdict, { x: PAD, y: 340, w: W - 2 * PAD });
-  const shift = vh ? vh + 14 : 0;
+  const top = vh ? 340 + vh + 8 : 334;
+  const sh = drawStops(ctx, data.plan.stops, { withDay: f.differentDay(data.plan.startMs, data.plan.endMs) }, { x: PAD, y: top, w: W - 2 * PAD });
+  const shift = (vh ? vh + 14 : 0) + (sh ? sh + 4 : 0);
   const tilesOk = await drawMap(ctx, data, { x: PAD, y: 346 + shift, w: W - 2 * PAD, h: 440 - shift, markers });
   drawProfile(ctx, data, { x: PAD, y: 806, w: W - 2 * PAD, h: 210 });
   drawTimes(ctx, data, { x: PAD, y: 1030, w: W - 2 * PAD, h: 262 }, markers);

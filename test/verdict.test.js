@@ -84,3 +84,14 @@ test('con casi nada en contra no dice «en contra en el 0 %»', async () => {
   assert.ok(keys(v).includes('vWindSide'));
   assert.ok(!keys(v).includes('vWindMixed'));
 });
+
+test('el plan lleva cada parada con su sitio, su hora de llegada y sus minutos', async () => {
+  const p = await plan({ windSpeed: 5, temp: 15 }, { startH: 9, pace: { stops: [{ km: 20, min: 15 }, { km: 5, min: 10 }, { km: 30, min: 5 }] } });
+  assert.deepEqual(p.stops.map((s) => [Math.round(s.d), s.ms / 60_000]), [[5000, 10], [20000, 15], [Math.round(p.distance), 5]]); // la del km 30, en la meta
+  // Llano a 30 km/h: km 5 a las 9:10; km 20 a las 9:40 + 10 min de la primera parada.
+  assert.ok(Math.abs(p.stops[0].arriveMs - at(9 + 10 / 60)) < 30_000);
+  assert.ok(Math.abs(p.stops[1].arriveMs - at(9 + 50 / 60)) < 30_000);
+  // La de la meta: se llega y luego se para (la llegada del plan incluye esos 5 min).
+  assert.ok(Math.abs(p.endMs - p.stops[2].arriveMs - 5 * 60_000) < 1000);
+  assert.ok(Number.isFinite(p.stops[0].lat));
+});

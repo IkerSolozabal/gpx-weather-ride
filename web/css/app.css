@@ -400,6 +400,11 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   font: 700 12px/20px var(--font-figure); text-align: center; color: #fff;
   border-radius: 4px; white-space: nowrap; padding: 0 6px;
 }
+.stop-marker {
+  font: 700 13px/21px var(--font-figure); text-align: center; color: var(--surface);
+  background: var(--ink); border: 1.5px solid var(--surface); border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .35);
+}
 .flag-start { background: var(--tail); }
 .flag-finish { background: var(--ink); color: var(--surface); }
 .leaflet-popup-content { margin: 10px 12px; min-width: 170px; }

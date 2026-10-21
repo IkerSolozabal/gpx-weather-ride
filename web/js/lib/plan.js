@@ -96,6 +96,12 @@ export function assemblePlan(track, samples, series, opts) {
     endMs,
     speedKmh,
     stopMs: pace ? pace.stopMs : 0,
+    // Paradas en orden: dónde, a qué hora se llega y cuánto se para.
+    stops: (pace?.stops || []).map((s) => ({
+      ...pointAt(track, s.d),
+      ms: s.ms,
+      arriveMs: clock(s.d) - (s.d >= track.total ? s.ms : 0),
+    })),
     windDelayMs: pace?.windDelayMs ?? 0,
     timeAt: clock,
     // Amanecer y anochecer del día de salida y del de llegada (null si la API no los da).

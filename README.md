@@ -70,6 +70,7 @@ Cada parada lleva su **punto kilométrico** y sus **minutos**, y se pueden añad
 - Dependen de la ruta, así que no se guardan como ajuste: se vacían al cargar otra ruta.
 - Al recorrer la ruta en sentido contrario siguen en el mismo sitio (su km se cuenta desde el otro extremo).
 - Viajan en los enlaces compartidos.
+- Al calcular la meteo, cada parada aparece en el mapa con su número; al pulsarla dice a qué hora llegas y a qué hora sales. En la imagen para compartir salen con el mismo número en el mapa y en una línea bajo el resumen («Paradas ① km 8 · 10:14 · 10 min …»).
 
 La lógica está en `normalizeStops` y `paceProfile` (`web/js/lib/pacing.js`).
 
@@ -108,7 +109,7 @@ La lógica está en `web/js/lib/share.js`.
 
 En la misma fila de compartir. Necesitan haber calculado la meteo de la ruta; hasta entonces están desactivados.
 
-- **Imagen**: un PNG vertical de 1080×1350 (el formato de las historias y de WhatsApp) con cinco zonas: cabecera con las cifras (fecha, distancia, desnivel, salida y llegada, temperatura, viento, lluvia y reparto del viento), el resumen en frases que se ve en la app (hasta tres líneas), mapa con la ruta coloreada y los puntos kilométricos, perfil, y horas de paso con temperatura y viento. En el móvil abre el menú de compartir del sistema; en el ordenador se descarga. Se dibuja en el navegador (`web/js/ui/export-image.js`); el fondo del mapa usa las mismas teselas que la app, que deben permitir CORS (OpenStreetMap lo permite). Si no se pueden cargar, la imagen sale con la ruta sobre fondo liso.
+- **Imagen**: un PNG vertical de 1080×1350 (el formato de las historias y de WhatsApp) con cinco zonas: cabecera con las cifras (fecha, distancia, desnivel, salida y llegada, temperatura, viento, lluvia y reparto del viento), el resumen en frases que se ve en la app (hasta tres líneas), las paradas previstas (si las hay), mapa con la ruta coloreada y los puntos kilométricos, perfil, y horas de paso con temperatura y viento. En el móvil abre el menú de compartir del sistema; en el ordenador se descarga. Se dibuja en el navegador (`web/js/ui/export-image.js`); el fondo del mapa usa las mismas teselas que la app, que deben permitir CORS (OpenStreetMap lo permite). Si no se pueden cargar, la imagen sale con la ruta sobre fondo liso.
 - **GPX** (con avisos): el track y un waypoint en cada punto kilométrico con la hora de paso, la temperatura, el viento, las rachas y la lluvia. Los puntos con lluvia ≥ 50 %, rachas ≥ 45 km/h o viento en contra ≥ 20 km/h llevan «!» y el símbolo de peligro, para verlos en el Garmin o el Wahoo (`web/js/lib/gpx-export.js`).
 
 ## App instalable (PWA)
