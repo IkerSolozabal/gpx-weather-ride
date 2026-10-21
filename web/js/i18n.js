@@ -412,6 +412,21 @@ let current = 'es';
  */
 export const NEWS = [
   {
+    id: '2026-10-23',
+    es: [
+      '«¿Cuándo salgo?» compara los próximos días con luz con un solo botón, sin rellenar horas.',
+      'Enlace, imagen y GPX, juntos en la misma fila de «Compartir».',
+      'En bici, el viento también cuenta en las horas de paso: de cara vas más lento y a favor, más rápido.',
+      'Si tu GPX no trae altitud, la app la consigue sola para tener en cuenta las subidas.',
+    ],
+    en: [
+      '“When should I go?” compares the next few days in daylight with a single button, no times to fill in.',
+      'Link, image and GPX, together in the same “Share” row.',
+      'On the bike, wind now counts in passing times: slower into a headwind, faster with a tailwind.',
+      'If your GPX has no elevation, the app gets it for you so climbs are taken into account.',
+    ],
+  },
+  {
     id: '2026-10-22',
     es: [
       'Las horas de paso tienen en cuenta la pendiente: según tu media y el desnivel, calcula tu nivel y cuánto tardas en cada subida y bajada.',
