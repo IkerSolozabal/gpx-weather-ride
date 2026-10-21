@@ -83,8 +83,12 @@ const news = createNews($('news'), $('news-list'));
 // --- Inicio ---
 function init() {
   // Antes de guardar nada: así se distingue a quien vuelve de quien entra por primera vez.
-  const unseen = unseenNews(NEWS, store.get('newsSeen', null), store.used());
-  store.set('newsSeen', latestNews(NEWS));
+  // Con NEWS_ENABLED=false no se enseñan ni se marcan como vistas: al activarlas, quien vuelva verá la última.
+  const newsOn = cfg.newsEnabled === 'true';
+  const unseen = newsOn ? unseenNews(NEWS, store.get('newsSeen', null), store.used()) : [];
+  if (newsOn) store.set('newsSeen', latestNews(NEWS));
+  $('news-open').hidden = !newsOn;
+  $('news-sep').hidden = !newsOn;
   setLang(store.get('lang', cfg.defaultLang));
   if (cfg.appEnv !== 'pro') document.title = `(${cfg.appEnv}) ${document.title}`;
   $('app-name').textContent = cfg.appName;

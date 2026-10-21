@@ -43,6 +43,7 @@ jobs:
           CSP_EXTRA_CONNECT: ${{ vars.CSP_EXTRA_CONNECT }}
           APP_NAME: ${{ vars.APP_NAME }}
           APP_DEFAULT_LANG: ${{ vars.APP_DEFAULT_LANG }}
+          NEWS_ENABLED: ${{ vars.NEWS_ENABLED }}
           WEATHER_API_URL: ${{ vars.WEATHER_API_URL }}
           WEATHER_API_KEY: ${{ vars.WEATHER_API_KEY }}
           WEATHER_MODELS: ${{ vars.WEATHER_MODELS }}

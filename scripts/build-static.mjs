@@ -17,6 +17,7 @@ export const ENV_MAP = {
   APP_NAME: 'appName',
   APP_VERSION: 'appVersion',
   APP_DEFAULT_LANG: 'defaultLang',
+  NEWS_ENABLED: 'newsEnabled',
   WEATHER_API_URL: 'weatherApiUrl',
   WEATHER_API_KEY: 'weatherApiKey',
   WEATHER_MODELS: 'weatherModels',

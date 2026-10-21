@@ -24,6 +24,7 @@ add appEnv           APP_ENV
 add appName          APP_NAME
 add appVersion       APP_VERSION
 add defaultLang      APP_DEFAULT_LANG
+add newsEnabled      NEWS_ENABLED
 
 add weatherApiUrl    WEATHER_API_URL
 add weatherApiKey    WEATHER_API_KEY
