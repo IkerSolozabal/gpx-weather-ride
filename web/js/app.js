@@ -4,7 +4,7 @@ import { parseGpx, GpxError } from './lib/gpx.js';
 import { bearingAround, buildTrack, elevationStats, pointAt, reverseTrack } from './lib/geo.js';
 import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
 import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
-import { rankDays, rankStarts } from './lib/beststart.js';
+import { daylightWindows, rankDays } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
 import { buildGpx, fileName } from './lib/gpx-export.js';
@@ -130,8 +130,6 @@ function init() {
   const prio = store.get('bestPriority', 'balanced');
   $('best-priority').value = prio;
   $('best-priority').addEventListener('change', () => store.set('bestPriority', $('best-priority').value));
-  $('best-days').checked = store.get('bestDays', false);
-  $('best-days').addEventListener('change', () => store.set('bestDays', $('best-days').checked));
   $('share-run').addEventListener('click', onShare);
   // Al abrir «Más opciones» su contenido suele quedar fuera de la vista del panel: lo mostramos.
   $('advanced').addEventListener('toggle', (ev) => {
@@ -755,23 +753,7 @@ function fig(label, value, sub) {
   return `<div><dt>${label}</dt><dd>${value}${sub ? `<span class="sub">${sub}</span>` : ''}</dd></div>`;
 }
 
-// --- Mejor hora de salida ---
-function timeOnStartDay(hhmm) {
-  const base = els.start.value ? new Date(els.start.value) : new Date();
-  const [h, m] = String(hhmm || '').split(':').map(Number);
-  if (!Number.isFinite(h)) return NaN;
-  const d = new Date(base);
-  d.setHours(h, m || 0, 0, 0);
-  return d.getTime();
-}
-
-/** El mismo reloj local `days` días después (respeta los cambios de hora). */
-function shiftDays(ms, days) {
-  const d = new Date(ms);
-  d.setDate(d.getDate() + days);
-  return d.getTime();
-}
-
+// --- Mejor momento para salir ---
 async function onBestRun() {
   if (!state.track || state.busy) return;
   hideMessage();
@@ -780,28 +762,19 @@ async function onBestRun() {
     form.field.setAttribute('aria-invalid', 'true');
     return showMessage(t(form.error));
   }
-  const fromMs = timeOnStartDay($('best-from').value);
-  const toMs = timeOnStartDay($('best-to').value);
-  if (!(toMs > fromMs)) return showMessage(t('err_best_window'));
   const pace = paceFor(form);
-  const durMs = pace.totalMs;
-  const limit = Date.now() + cfg.forecastDays * DAY;
-  if (fromMs > limit) return showMessage(t('err_best_none', { days: cfg.forecastDays }));
-  // Con «próximos días», la misma franja cada día hasta donde llega el pronóstico (como mucho una semana).
-  const byDay = $('best-days').checked;
-  const days = [];
-  for (let k = 0; k < (byDay ? 7 : 1); k++) {
-    const day = { fromMs: shiftDays(fromMs, k), toMs: shiftDays(toMs, k) };
-    if (day.fromMs > limit) break;
-    days.push(day);
-  }
-  const lastTo = days[days.length - 1].toMs;
+  const now = Date.now();
+  const limit = now + cfg.forecastDays * DAY;
 
   const btn = $('best-run');
   btn.disabled = true;
   btn.classList.add('is-loading');
   try {
-    const { samples, series } = await getSeries(fromMs, Math.min(lastTo + durMs, limit));
+    // Una semana (o lo que llegue el pronóstico) en una sola consulta; las franjas con luz salen de ahí.
+    const { samples, series } = await getSeries(now, Math.min(now + 8 * DAY, limit));
+    const days = daylightWindows(series[0], { days: 7, durationMs: pace.totalMs, nowMs: now, stepMin: cfg.bestStartStepMin }).filter(
+      (d) => d.toMs + pace.totalMs <= limit,
+    );
     const opts = {
       track: state.track,
       samples,
@@ -814,10 +787,10 @@ async function onBestRun() {
       comfortMin: cfg.comfortMinC,
       comfortMax: cfg.comfortMaxC,
     };
-    const list = byDay ? rankDays({ ...opts, days }) : rankStarts({ ...opts, fromMs, toMs });
-    state.best = { list, byDay, sport: form.sport, speedKmh: form.speedKmh };
+    const list = rankDays({ ...opts, days });
+    state.best = { list, sport: form.sport, speedKmh: form.speedKmh };
     renderBest();
-    if (!list.some((c) => c.best)) showMessage(t('err_best_none', { days: cfg.forecastDays }));
+    if (!list.some((c) => c.best)) showMessage(t('err_best_none'));
   } catch (err) {
     console.error(err);
     if (err instanceof WeatherError) showMessage(t(`err_${err.code}`, { detail: err.detail || '', days: cfg.forecastDays }));
@@ -830,13 +803,13 @@ async function onBestRun() {
 
 function renderBest() {
   const box = $('best-results');
-  const { list, byDay } = state.best;
+  const { list } = state.best;
   const best = list.find((c) => c.best);
-  const when = (ms) => f.time(ms, { withDay: byDay });
+  const when = (ms) => f.time(ms, { withDay: true });
   const current = state.plan ? state.plan.startMs : null;
   let html = '';
   if (best) {
-    html += `<p class="best-summary">${t(byDay ? 'bestSummaryDay' : 'bestSummary', {
+    html += `<p class="best-summary">${t('bestSummaryDay', {
       time: `<b>${when(best.startMs)}</b>`,
       head: Math.round(best.headShare * 100),
       rain: Math.round(best.rainMax),

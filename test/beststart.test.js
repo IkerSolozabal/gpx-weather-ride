@@ -129,3 +129,17 @@ test('con prioridad viento gana 0 % en contra aunque otra hora tenga mucho vient
   assert.ok(calm.score < early.score, `0 % en contra (${calm.score.toFixed(2)}) debe ganar a 30 % (${early.score.toFixed(2)})`);
   assert.ok(list.find((c) => c.best).headShare < 0.05);
 });
+
+test('daylightWindows: de amanecer a la última salida que llega de día', async () => {
+  const { daylightWindows } = await import('../web/js/lib/beststart.js');
+  // Amanecer 7:00 y anochecer 18:00 UTC; ruta de 3 h; son las 9:10 del primer día.
+  const s = toSeries(fakeLocation(DAY0 / 1000, 24 * 4));
+  const w = daylightWindows(s, { days: 7, durationMs: 3 * H, nowMs: at(9 + 1 / 6), stepMin: 30 });
+  assert.equal(w.length, 4);
+  assert.deepEqual(w[0], { fromMs: at(9.5), toMs: at(15) }); // hoy, desde ahora
+  assert.deepEqual(w[1], { fromMs: at(24 + 7), toMs: at(24 + 15) });
+  // Ya no da tiempo a llegar de día hoy: empieza mañana.
+  assert.equal(daylightWindows(s, { days: 7, durationMs: 3 * H, nowMs: at(16), stepMin: 30 })[0].fromMs, at(24 + 7));
+  // Ruta más larga que el día: solo la salida al amanecer.
+  assert.deepEqual(daylightWindows(s, { days: 1, durationMs: 14 * H, nowMs: at(0), stepMin: 30 })[0], { fromMs: at(7), toMs: at(7) });
+});
