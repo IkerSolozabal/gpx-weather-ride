@@ -4,11 +4,13 @@ import { parseGpx, GpxError } from './lib/gpx.js';
 import { bearingAround, buildTrack, elevationStats, pointAt, reverseTrack } from './lib/geo.js';
 import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
 import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
-import { rankStarts } from './lib/beststart.js';
+import { rankDays, rankStarts } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
 import { buildGpx, fileName } from './lib/gpx-export.js';
 import { latestNews, unseenNews } from './lib/news.js';
+import { paceProfile } from './lib/pacing.js';
+import { verdict } from './lib/verdict.js';
 import { renderShareImage, toBlob } from './ui/export-image.js';
 import { registerPwa } from './pwa.js';
 import { createStartPicker } from './ui/start-picker.js';
@@ -124,6 +126,8 @@ function init() {
   const prio = store.get('bestPriority', 'balanced');
   $('best-priority').value = prio;
   $('best-priority').addEventListener('change', () => store.set('bestPriority', $('best-priority').value));
+  $('best-days').checked = store.get('bestDays', false);
+  $('best-days').addEventListener('change', () => store.set('bestDays', $('best-days').checked));
   $('share-run').addEventListener('click', onShare);
   // Al abrir «Más opciones» su contenido suele quedar fuera de la vista del panel: lo mostramos.
   $('advanced').addEventListener('toggle', (ev) => {
@@ -137,6 +141,8 @@ function init() {
   $('export-gpx').addEventListener('click', onExportGpx);
   $('change-route').addEventListener('click', () => els.file.click());
   $('reverse-route').addEventListener('click', onReverse);
+  $('stop-add').addEventListener('click', onAddStop);
+  $('stops').addEventListener('click', onStopsClick);
   $('news-open').addEventListener('click', () => news.open(NEWS));
   setupDrop();
 
@@ -144,6 +150,10 @@ function init() {
   renderRecent();
   loadFromLink();
   loadSharedFile();
+  // Ordenador con la app instalada: abrir un .gpx con doble clic (file_handlers del manifiesto).
+  window.launchQueue?.setConsumer(async ({ files }) => {
+    if (files && files[0]) loadFile(await files[0].getFile());
+  });
   if (unseen.length) news.open(unseen);
 
   registerPwa(cfg, '../sw.js', { installButton: $('install'), onInstalled: () => showMessage(t('installDone'), 'info') });
@@ -206,6 +216,7 @@ async function loadFile(file) {
     els.file.value = '';
   }
   state.reversed = false;
+  setStops();
   // Una ruta nueva sustituye a la del enlace compartido.
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
@@ -240,6 +251,7 @@ function showLoadedRoute() {
   $('best-results').hidden = true;
   $('best-run').disabled = false;
   $('share-run').disabled = false;
+  $('share-quick').hidden = false;
   $('share-status').hidden = true;
   $('share-link').hidden = true;
   setExportReady(false);
@@ -270,8 +282,11 @@ function showRouteInfo() {
 function onReverse() {
   if (!state.track || state.busy) return;
   const hadPlan = Boolean(state.plan);
+  const totalKm = state.track.total / 1000;
   state.track = reverseTrack(state.track);
   state.reversed = !state.reversed;
+  // Las paradas siguen en el mismo sitio: su km se cuenta ahora desde el otro extremo.
+  setStops(readStops().map((s) => ({ ...s, km: Number.isFinite(s.km) ? Math.round((totalKm - s.km) * 10) / 10 : '' })));
   showLoadedRoute();
   if (hadPlan) els.form.requestSubmit();
 }
@@ -346,6 +361,7 @@ async function onRecentClick(ev) {
     state.track = buildTrack(route.points);
     state.routeName = route.name || entry.name;
     state.reversed = false;
+    setStops();
   } catch {
     store.set('recent', removeRecent(loadRecent(), entry.id));
     renderRecent();
@@ -390,6 +406,7 @@ async function onExportImage() {
       track: state.track,
       plan: state.plan,
       routeName: displayName(),
+      verdict: verdictText(state.plan),
       elevation: elevationStats(state.track),
       tileTemplate: cfg.tileUrl,
       siteLabel: location.host || 'GPX Weather Ride',
@@ -480,7 +497,7 @@ function onFormChange(ev) {
   updateEstimate();
 }
 
-/** Lee el formulario. Devuelve {startMs, speedKmh, sport} o {error, field}. */
+/** Lee el formulario. Devuelve {startMs, speedKmh, sport, stops} o {error, field}. */
 function readForm() {
   const sport = els.form.sport.value;
   const startMs = els.start.value ? new Date(els.start.value).getTime() : NaN;
@@ -494,7 +511,62 @@ function readForm() {
     if (!pace) return { error: 'err_pace', field: els.pace };
     speedKmh = paceToKmh(pace);
   }
-  return { sport, startMs, speedKmh };
+  return { sport, startMs, speedKmh, stops: readStops() };
+}
+
+// --- Paradas: cada una con su punto kilométrico y sus minutos (dependen de la ruta, no se guardan) ---
+function stopRow({ km = '', min = '' } = {}) {
+  const li = document.createElement('li');
+  li.className = 'stop-row';
+  li.innerHTML = `
+    <span class="input-unit"><input type="number" class="stop-km" inputmode="decimal" min="0" step="0.1" data-i18n-aria="stopKm"><span>km</span></span>
+    <span class="input-unit"><input type="number" class="stop-min" inputmode="numeric" min="0" max="1440" step="5" data-i18n-aria="stopMin"><span>min</span></span>
+    <button type="button" class="stop-del" data-i18n-aria="stopDel">×</button>`;
+  li.querySelector('.stop-km').value = km;
+  li.querySelector('.stop-min').value = min;
+  applyI18n(li);
+  return li;
+}
+
+function setStops(stops = []) {
+  $('stops').replaceChildren(...stops.map(stopRow));
+}
+
+/** Paradas del formulario con minutos: [{km, min}]. */
+function readStops() {
+  const num = (input) => parseFloat(String(input.value).replace(',', '.'));
+  return [...$('stops').querySelectorAll('.stop-row')]
+    .map((row) => ({ km: num(row.querySelector('.stop-km')), min: num(row.querySelector('.stop-min')) }))
+    .filter((s) => s.min > 0);
+}
+
+/** Nueva parada a mitad de lo que queda tras la última, con 15 minutos. */
+function onAddStop() {
+  const totalKm = state.track ? state.track.total / 1000 : 0;
+  const kms = [...$('stops').querySelectorAll('.stop-km')].map((i) => parseFloat(i.value)).filter(Number.isFinite);
+  const last = kms.length ? Math.max(...kms) : 0;
+  const row = stopRow({ km: totalKm ? Math.round((last + (totalKm - last) / 2) * 10) / 10 : '', min: 15 });
+  $('stops').append(row);
+  row.querySelector('.stop-km').focus();
+  updateEstimate();
+}
+
+function onStopsClick(ev) {
+  const del = ev.target.closest('.stop-del');
+  if (!del) return;
+  del.closest('.stop-row').remove();
+  updateEstimate();
+}
+
+/** Tiempo de paso según la pendiente y las paradas (lib/pacing.js), reutilizado mientras no cambie nada. */
+
+function paceFor(form) {
+  const key = `${form.sport}|${form.speedKmh}|${JSON.stringify(form.stops)}`;
+  const c = state.pace;
+  if (c && c.track === state.track && c.key === key) return c.profile;
+  const profile = paceProfile(state.track, { sport: form.sport, speedKmh: form.speedKmh, stops: form.stops });
+  state.pace = { track: state.track, key, profile };
+  return profile;
 }
 
 function updateEstimate() {
@@ -504,8 +576,10 @@ function updateEstimate() {
     return;
   }
   const dur = (state.track.total / 1000 / form.speedKmh) * 3600_000;
-  const end = form.startMs + dur;
-  let text = t('estimate', { duration: formatDuration(dur), end: f.time(end, { withDay: f.differentDay(form.startMs, end) }) });
+  const stopMs = form.stops.reduce((a, s) => a + s.min, 0) * 60_000;
+  const end = form.startMs + dur + stopMs;
+  const vars = { duration: formatDuration(dur), stops: formatDuration(stopMs), end: f.time(end, { withDay: f.differentDay(form.startMs, end) }) };
+  let text = t(stopMs ? 'estimateStops' : 'estimate', vars);
   if (form.sport === 'run') text += ` · ${f.num(form.speedKmh, 1)} km/h`;
   els.estimate.textContent = text;
 }
@@ -520,12 +594,12 @@ async function onSubmit(ev) {
     form.field.focus();
     return showMessage(t(form.error));
   }
-  const endMs = form.startMs + (state.track.total / 1000 / form.speedKmh) * 3600_000;
+  const endMs = form.startMs + paceFor(form).totalMs;
   if (endMs > Date.now() + cfg.forecastDays * DAY) return showMessage(t('err_range', { days: cfg.forecastDays }));
 
   setBusy(true);
   try {
-    state.plan = await planFor(form.startMs, form.speedKmh, form.sport);
+    state.plan = await planFor(form);
     renderPlan();
     if (state.plan.missingWeather) showMessage(t('warnMissing'), true);
   } catch (err) {
@@ -558,10 +632,11 @@ async function getSeries(fromMs, toMs) {
   return state.cache;
 }
 
-async function planFor(startMs, speedKmh, sport) {
-  const endMs = startMs + (state.track.total / 1000 / speedKmh) * 3600_000;
-  const { samples, series } = await getSeries(startMs, endMs);
-  return assemblePlan(state.track, samples, series, { ...planOptions(sport), startMs, speedKmh });
+async function planFor(form) {
+  const { startMs, speedKmh, sport } = form;
+  const pace = paceFor(form);
+  const { samples, series } = await getSeries(startMs, startMs + pace.totalMs);
+  return assemblePlan(state.track, samples, series, { ...planOptions(sport), startMs, speedKmh, pace });
 }
 
 function setBusy(on) {
@@ -587,6 +662,7 @@ function renderPlan() {
   const { plan, track } = state;
   const s = plan.summary;
   const withDay = f.differentDay(plan.startMs, plan.endMs);
+  $('verdict').textContent = verdictText(plan);
 
   $('summary').innerHTML = [
     fig(t('arrival'), f.time(plan.endMs, { withDay }), formatDuration(plan.endMs - plan.startMs) + ' h'),
@@ -649,6 +725,28 @@ function renderPlan() {
   }
 }
 
+/** El plan resumido en unas frases (lib/verdict.js). */
+function verdictText(plan) {
+  return verdict(plan, { comfortMin: cfg.comfortMinC, comfortMax: cfg.comfortMaxC })
+    .map(({ key, vars }) =>
+      t(key, {
+        temp: f.temp(vars.temp),
+        feels: f.temp(vars.feels),
+        min: f.temp(vars.min),
+        max: f.temp(vars.max),
+        pct: Math.round(vars.pct ?? 0),
+        kmh: f.num(vars.kmh),
+        km: f.kmMark(vars.km ?? 0),
+        time: vars.timeMs ? f.time(vars.timeMs) : '',
+        sunrise: vars.sunriseMs ? f.time(vars.sunriseMs) : '',
+        sunset: vars.sunsetMs ? f.time(vars.sunsetMs) : '',
+        before: f.span(vars.beforeMs ?? 0),
+        after: f.span(vars.afterMs ?? 0),
+      }),
+    )
+    .join(' ');
+}
+
 function fig(label, value, sub) {
   return `<div><dt>${label}</dt><dd>${value}${sub ? `<span class="sub">${sub}</span>` : ''}</dd></div>`;
 }
@@ -663,6 +761,13 @@ function timeOnStartDay(hhmm) {
   return d.getTime();
 }
 
+/** El mismo reloj local `days` días después (respeta los cambios de hora). */
+function shiftDays(ms, days) {
+  const d = new Date(ms);
+  d.setDate(d.getDate() + days);
+  return d.getTime();
+}
+
 async function onBestRun() {
   if (!state.track || state.busy) return;
   hideMessage();
@@ -674,29 +779,39 @@ async function onBestRun() {
   const fromMs = timeOnStartDay($('best-from').value);
   const toMs = timeOnStartDay($('best-to').value);
   if (!(toMs > fromMs)) return showMessage(t('err_best_window'));
-  const durMs = (state.track.total / 1000 / form.speedKmh) * 3600_000;
+  const pace = paceFor(form);
+  const durMs = pace.totalMs;
   const limit = Date.now() + cfg.forecastDays * DAY;
   if (fromMs > limit) return showMessage(t('err_best_none', { days: cfg.forecastDays }));
+  // Con «próximos días», la misma franja cada día hasta donde llega el pronóstico (como mucho una semana).
+  const byDay = $('best-days').checked;
+  const days = [];
+  for (let k = 0; k < (byDay ? 7 : 1); k++) {
+    const day = { fromMs: shiftDays(fromMs, k), toMs: shiftDays(toMs, k) };
+    if (day.fromMs > limit) break;
+    days.push(day);
+  }
+  const lastTo = days[days.length - 1].toMs;
 
   const btn = $('best-run');
   btn.disabled = true;
   btn.classList.add('is-loading');
   try {
-    const { samples, series } = await getSeries(fromMs, Math.min(toMs + durMs, limit));
-    const list = rankStarts({
+    const { samples, series } = await getSeries(fromMs, Math.min(lastTo + durMs, limit));
+    const opts = {
       track: state.track,
       samples,
       series,
       speedKmh: form.speedKmh,
-      fromMs,
-      toMs,
+      pace,
       stepMin: cfg.bestStartStepMin,
       priority: $('best-priority').value,
       wind: windOpts,
       comfortMin: cfg.comfortMinC,
       comfortMax: cfg.comfortMaxC,
-    });
-    state.best = { list, sport: form.sport, speedKmh: form.speedKmh };
+    };
+    const list = byDay ? rankDays({ ...opts, days }) : rankStarts({ ...opts, fromMs, toMs });
+    state.best = { list, byDay, sport: form.sport, speedKmh: form.speedKmh };
     renderBest();
     if (!list.some((c) => c.best)) showMessage(t('err_best_none', { days: cfg.forecastDays }));
   } catch (err) {
@@ -711,19 +826,20 @@ async function onBestRun() {
 
 function renderBest() {
   const box = $('best-results');
-  const { list } = state.best;
+  const { list, byDay } = state.best;
   const best = list.find((c) => c.best);
+  const when = (ms) => f.time(ms, { withDay: byDay });
   const current = state.plan ? state.plan.startMs : null;
   let html = '';
   if (best) {
-    html += `<p class="best-summary">${t('bestSummary', {
-      time: `<b>${f.time(best.startMs)}</b>`,
+    html += `<p class="best-summary">${t(byDay ? 'bestSummaryDay' : 'bestSummary', {
+      time: `<b>${when(best.startMs)}</b>`,
       head: Math.round(best.headShare * 100),
       rain: Math.round(best.rainMax),
       tmin: f.temp(best.tempMin),
       tmax: f.temp(best.tempMax),
     })}${best.darkShare > 0.02 ? ` ${t('bestDark')}` : ''}</p>`;
-    html += `<button type="button" class="primary best-use" data-start="${best.startMs}">${t('bestUse', { time: f.time(best.startMs) })}</button>`;
+    html += `<button type="button" class="primary best-use" data-start="${best.startMs}">${t('bestUse', { time: when(best.startMs) })}</button>`;
   }
   html += `<p class="adv-hint">${t('bestPick')}</p><ul class="best-list">`;
   for (const c of list) {
@@ -734,7 +850,7 @@ function renderBest() {
       ? `${t('bestMeta', { temp: f.temp(c.tempMin), head: Math.round(c.headShare * 100), rain: Math.round(c.rainMax) })}${c.darkShare > 0.02 ? ' · 🌙' : ''}`
       : t('bestNoData');
     html += `<li><button type="button" class="${cls}" data-start="${c.startMs}" ${ok ? '' : 'disabled'}>
-      <span class="best-time">${f.time(c.startMs)}</span>
+      <span class="best-time">${when(c.startMs)}</span>
       <span class="best-bar"><span style="width:${width}%"></span></span>
       <span class="best-meta">${meta}</span>
     </button></li>`;
@@ -771,6 +887,7 @@ async function onShare() {
       startMs: form.error ? undefined : form.startMs,
       sport: els.form.sport.value,
       speedKmh: form.error ? undefined : form.speedKmh,
+      stops: form.error ? undefined : form.stops,
       hideMeters: $('share-hide').checked ? 500 : 0,
     });
     url = `${location.origin}${location.pathname}#${hash}`;
@@ -818,6 +935,7 @@ async function loadFromLink() {
     if (els.form.sport.value === 'run') els.pace.value = formatPace(kmhToPace(shared.speedKmh));
     else els.speed.value = Math.round(shared.speedKmh * 10) / 10;
   }
+  setStops(shared.stops);
   const past = !shared.startMs || shared.startMs < Date.now();
   els.start.value = f.toLocalInput(past ? Math.ceil(Date.now() / 3600_000) * 3600_000 : shared.startMs);
   state.startPicker?.refresh();
@@ -838,7 +956,7 @@ function hoverInfo(d) {
   const { plan, track } = state;
   const p = pointAt(track, d);
   mapView.moveCursor(p);
-  const time = plan.startMs + (d / 1000 / plan.speedKmh) * 3600_000;
+  const time = plan.timeAt(d);
   const a = plan.arrows[nearestSample(plan.arrows, d)];
   const w = a.weather;
   const ele = p.ele !== null ? ` · ${f.num(p.ele)} m` : '';

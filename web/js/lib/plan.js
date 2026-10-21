@@ -5,7 +5,7 @@
 
 import { bearingAround, distanceSteps, elevationStats, pointAt, sliceTrack } from './geo.js';
 import { makeClock } from './timing.js';
-import { fetchForecast, weatherAt } from './weather.js';
+import { fetchForecast, sunTimes, weatherAt } from './weather.js';
 import { relativeWind, WIND } from './wind.js';
 
 /**
@@ -33,10 +33,12 @@ export function nearestSample(samples, d) {
  * @param {object} track Resultado de buildTrack.
  * @param {object[]} samples Resultado de samplePoints.
  * @param {object[]} series Una serie de Open-Meteo por punto de muestreo.
+ * @param {object} opts Con `pace` (lib/pacing.js) las horas de paso tienen en cuenta la
+ *   pendiente y las paradas; sin él, velocidad constante `speedKmh`.
  */
 export function assemblePlan(track, samples, series, opts) {
-  const { startMs, speedKmh, markerKm, segmentM = 250, wind: windOpts = {}, courseWindow = 200 } = opts;
-  const clock = makeClock(startMs, speedKmh);
+  const { startMs, speedKmh, markerKm, segmentM = 250, wind: windOpts = {}, courseWindow = 200, pace } = opts;
+  const clock = pace ? (d) => startMs + pace.offset(d) : makeClock(startMs, speedKmh);
 
   const atDistance = (d) => {
     const time = clock(d);
@@ -76,11 +78,19 @@ export function assemblePlan(track, samples, series, opts) {
   const temps = num(ws.map((w) => w.temp));
   const total = track.total || 1;
 
+  const endMs = clock(track.total);
   return {
     distance: track.total,
     startMs,
-    endMs: clock(track.total),
+    endMs,
     speedKmh,
+    stopMs: pace ? pace.stopMs : 0,
+    timeAt: clock,
+    // Amanecer y anochecer del día de salida y del de llegada (null si la API no los da).
+    sun: {
+      start: sunTimes(series[0], startMs),
+      end: sunTimes(series[series.length - 1], endMs),
+    },
     elevation: elevationStats(track),
     markers,
     segments,
@@ -115,7 +125,7 @@ export async function fetchSeries(track, opts, fetchImpl) {
  * @param {object} opts startMs, speedKmh, sampleKm, markerKm, segmentM, wind, weather{baseUrl, apiKey, models, chunkSize}
  */
 export async function computePlan(track, opts, fetchImpl) {
-  const clock = makeClock(opts.startMs, opts.speedKmh);
+  const clock = opts.pace ? (d) => opts.startMs + opts.pace.offset(d) : makeClock(opts.startMs, opts.speedKmh);
   const { samples, series } = await fetchSeries(track, { ...opts, fromMs: opts.startMs, toMs: clock(track.total) }, fetchImpl);
   return assemblePlan(track, samples, series, opts);
 }

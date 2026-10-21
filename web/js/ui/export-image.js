@@ -1,6 +1,7 @@
 /**
- * Imagen para compartir (PNG 1080×1350, formato vertical de móvil) con cuatro zonas:
- * cabecera con el resumen, mapa con la ruta coloreada por el viento, perfil y horas de paso.
+ * Imagen para compartir (PNG 1080×1350, formato vertical de móvil) con cinco zonas:
+ * cabecera con las cifras, el resumen en frases (si lo hay), mapa con la ruta coloreada
+ * por el viento, perfil y horas de paso.
  * Se dibuja en un canvas sin Leaflet; las teselas del mapa se piden con CORS.
  */
 
@@ -55,6 +56,41 @@ function fitText(ctx, text, maxWidth) {
   let s = text;
   while (s.length > 1 && ctx.measureText(`${s}…`).width > maxWidth) s = s.slice(0, -1);
   return `${s}…`;
+}
+
+/** Parte el texto en líneas de `maxWidth` como mucho; la última lleva «…» si no cabe. */
+function wrapLines(ctx, text, maxWidth, maxLines) {
+  const lines = [];
+  let line = '';
+  for (const word of String(text).split(/\s+/).filter(Boolean)) {
+    const next = line ? `${line} ${word}` : word;
+    if (ctx.measureText(next).width <= maxWidth || !line) line = next;
+    else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length <= maxLines) return lines;
+  const kept = lines.slice(0, maxLines);
+  kept[maxLines - 1] = fitText(ctx, `${kept[maxLines - 1]} ${lines[maxLines]}…`, maxWidth);
+  return kept;
+}
+
+/** Resumen en frases en un recuadro. Devuelve la altura ocupada (0 si no hay texto). */
+function drawVerdict(ctx, text, { x, y, w }) {
+  if (!text) return 0;
+  ctx.font = `500 27px ${TXT}`;
+  const lines = wrapLines(ctx, text, w - 44, 3);
+  const lh = 36;
+  const h = lines.length * lh + 26;
+  ctx.fillStyle = C.surface;
+  roundRect(ctx, x, y, w, h, 10);
+  ctx.fill();
+  ctx.fillStyle = C.ink;
+  ctx.fillRect(x, y, 6, h);
+  lines.forEach((l, i) => ctx.fillText(l, x + 26, y + 13 + lh * (i + 1) - 10));
+  return h;
 }
 
 /** Flecha que apunta hacia donde sopla el viento. */
@@ -374,7 +410,10 @@ export async function renderShareImage(data) {
 
   const markers = evenlyPick(data.plan.markers, 12);
   drawHeader(ctx, data);
-  const tilesOk = await drawMap(ctx, data, { x: PAD, y: 346, w: W - 2 * PAD, h: 440, markers });
+  // El resumen va entre la cabecera y el mapa, que se acorta lo que ocupe.
+  const vh = drawVerdict(ctx, data.verdict, { x: PAD, y: 340, w: W - 2 * PAD });
+  const shift = vh ? vh + 14 : 0;
+  const tilesOk = await drawMap(ctx, data, { x: PAD, y: 346 + shift, w: W - 2 * PAD, h: 440 - shift, markers });
   drawProfile(ctx, data, { x: PAD, y: 806, w: W - 2 * PAD, h: 210 });
   drawTimes(ctx, data, { x: PAD, y: 1030, w: W - 2 * PAD, h: 262 }, markers);
 
