@@ -8,6 +8,7 @@ import { daylightWindows, rankDays } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
 import { buildGpx, fileName } from './lib/gpx-export.js';
+import { elevationSamples, elevationUrlFor, fetchElevation, needsElevation, withElevation } from './lib/elevation.js';
 import { latestNews, unseenNews } from './lib/news.js';
 import { paceProfile, windPace } from './lib/pacing.js';
 import { verdict } from './lib/verdict.js';
@@ -223,6 +224,7 @@ async function loadFile(file) {
   // Una ruta nueva sustituye a la del enlace compartido.
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
+  await fillElevation();
   rememberRoute();
 }
 
@@ -278,7 +280,28 @@ function showRouteInfo() {
   $('reverse-label').textContent = state.reversed ? t('reversed') : t('reverse');
   $('route-distance').innerHTML = `${f.km(state.track.total, 1)}<small>km</small>`;
   const ele = elevationStats(state.track);
-  $('route-ascent').innerHTML = ele ? `${f.num(ele.gain)}<small>m</small>` : '–';
+  const est = state.track.estimatedEle ? ` · ${t('eleEstimated')}` : '';
+  $('route-ascent').innerHTML = ele ? `${f.num(ele.gain)}<small>m${est}</small>` : '–';
+}
+
+/**
+ * Si el GPX no trae altitud, la pide a Open-Meteo para tener ritmo por pendiente y perfil.
+ * Sin conexión o si falla, la ruta sigue sin altitud (velocidad constante).
+ */
+async function fillElevation() {
+  const track = state.track;
+  if (!track || !needsElevation(track)) return;
+  try {
+    const samples = elevationSamples(track);
+    const eles = await fetchElevation(samples, { url: elevationUrlFor(cfg.weatherApiUrl), apiKey: cfg.weatherApiKey });
+    if (state.track !== track) return; // se cargó otra ruta mientras tanto
+    state.track = withElevation(track, samples, eles);
+    showRouteInfo();
+    updateEstimate();
+    if (state.plan && !state.busy) els.form.requestSubmit();
+  } catch (err) {
+    console.warn('Sin altitud de Open-Meteo', err);
+  }
 }
 
 /** Da la vuelta a la ruta y, si ya había meteo calculada, la recalcula en el nuevo sentido. */
@@ -286,7 +309,9 @@ function onReverse() {
   if (!state.track || state.busy) return;
   const hadPlan = Boolean(state.plan);
   const totalKm = state.track.total / 1000;
+  const { estimatedEle } = state.track;
   state.track = reverseTrack(state.track);
+  if (estimatedEle) state.track.estimatedEle = true;
   state.reversed = !state.reversed;
   // Las paradas siguen en el mismo sitio: su km se cuenta ahora desde el otro extremo.
   setStops(readStops().map((s) => ({ ...s, km: Number.isFinite(s.km) ? Math.round((totalKm - s.km) * 10) / 10 : '' })));
@@ -372,6 +397,7 @@ async function onRecentClick(ev) {
   }
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
+  await fillElevation();
   rememberRoute();
 }
 
@@ -931,6 +957,7 @@ async function loadFromLink() {
   els.start.value = f.toLocalInput(past ? Math.ceil(Date.now() / 3600_000) * 3600_000 : shared.startMs);
   state.startPicker?.refresh();
   showLoadedRoute();
+  await fillElevation();
   rememberRoute();
   els.form.requestSubmit();
   // El mensaje se muestra después de que onSubmit limpie los anteriores.
