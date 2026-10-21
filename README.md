@@ -95,6 +95,16 @@ El service worker (`web/sw.js`) guarda:
 
 Así, sin conexión se abren la portada, la app y las **rutas recientes**, y se puede volver a ver la última meteo consultada de cada una.
 
+### Abrir un GPX desde «Compartir» (Android)
+
+Con la app instalada en Android, GPX Weather Ride aparece en el menú **Compartir** del sistema. Desde Strava, Garmin Connect, Komoot o el gestor de archivos se comparte el `.gpx` y la ruta se abre directamente en la app, sin cuentas ni servidor:
+
+1. El manifiesto declara un `share_target` que envía el archivo por POST a `app/?share-target`.
+2. El service worker lo intercepta (GitHub Pages no admite POST), lo guarda en la caché `gwr-share` y redirige a `app/?shared`.
+3. La app lo lee de la caché, lo borra y lo carga como si se hubiera arrastrado.
+
+En iPhone y en el ordenador no existe este menú: se sigue subiendo el archivo. Para probarlo en local hay que registrar el service worker a mano, porque en desarrollo no se registra.
+
 - En desarrollo (`npm run dev`, `appEnv: 'dev'`) no se registra, para no servir archivos antiguos.
 - Al añadir un archivo a `web/` hay que añadirlo a `PRECACHE` en `web/sw.js`; `test/pwa.test.js` falla si falta.
 - La CSP incluye el origen de las teselas en `connect-src` porque las descarga el service worker.

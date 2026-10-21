@@ -143,6 +143,7 @@ function init() {
   refreshTexts();
   renderRecent();
   loadFromLink();
+  loadSharedFile();
   if (unseen.length) news.open(unseen);
 
   registerPwa(cfg, '../sw.js', { installButton: $('install'), onInstalled: () => showMessage(t('installDone'), 'info') });
@@ -209,6 +210,26 @@ async function loadFile(file) {
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
   rememberRoute();
+}
+
+/** GPX recibido con «Compartir» desde otra app: el service worker lo deja en la caché (ver sw.js). */
+async function loadSharedFile() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('shared') || !('caches' in window)) return;
+  params.delete('shared');
+  const query = params.toString();
+  history.replaceState(null, '', location.pathname + (query ? `?${query}` : '') + location.hash);
+  try {
+    const cache = await caches.open('gwr-share');
+    const key = new URL('../shared.gpx', location.href).href; // junto a sw.js, que lo guarda
+    const response = await cache.match(key);
+    if (!response) return;
+    await cache.delete(key);
+    const name = decodeURIComponent(response.headers.get('X-File-Name') || 'ruta.gpx');
+    loadFile(new File([await response.blob()], name));
+  } catch {
+    showMessage(t('err_read'));
+  }
 }
 
 /** Prepara la interfaz para la ruta de state.track (de un GPX o de un enlace). */

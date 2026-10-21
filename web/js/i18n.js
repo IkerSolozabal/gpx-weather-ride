@@ -376,6 +376,7 @@ export const NEWS = [
   {
     id: '2026-10-21',
     es: [
+      'En Android, con la app instalada, comparte el GPX desde Strava, Garmin Connect o Komoot y se abre directamente aquí.',
       'Elige el día de salida con un botón y escribe la hora como quieras: «8», «830» o «8:30».',
       'Compara varias horas de salida y te sugiere la mejor, en «Más opciones».',
       'Comparte la ruta con un enlace, o expórtala como imagen o como GPX con avisos para tu GPS.',
@@ -383,6 +384,7 @@ export const NEWS = [
       'Instálala como app y abre tus rutas recientes incluso sin conexión.',
     ],
     en: [
+      'On Android, with the app installed, share the GPX from Strava, Garmin Connect or Komoot and it opens straight here.',
       'Pick the start day with a button and type the time any way you like: “8”, “830” or “8:30”.',
       'Compare several start times and get the best one suggested, under “More options”.',
       'Share the route with a link, or export it as an image or as a GPX with alerts for your GPS.',

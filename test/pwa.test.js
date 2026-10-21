@@ -33,3 +33,16 @@ test('el manifiesto es válido y sus iconos existen', () => {
   assert.ok(m.icons.some((i) => i.sizes === '512x512' && i.purpose === 'maskable'));
   for (const i of m.icons) assert.ok(existsSync(join(web, i.src)), i.src);
 });
+
+test('compartir un GPX desde otra app llega al service worker', () => {
+  const m = JSON.parse(readFileSync(join(web, 'manifest.webmanifest'), 'utf8'));
+  const st = m.share_target;
+  assert.equal(st.method, 'POST');
+  assert.equal(st.enctype, 'multipart/form-data');
+  assert.ok(st.action.startsWith(m.scope), 'la acción tiene que estar dentro del scope');
+  const param = new URL(st.action, 'https://x/').searchParams.keys().next().value;
+  assert.ok(sw.includes(`searchParams.has('${param}')`), `sw.js no atiende ?${param}`);
+  const field = st.params.files[0].name;
+  assert.ok(sw.includes(`.get('${field}')`), `sw.js no lee el campo ${field}`);
+  assert.ok(st.params.files[0].accept.includes('.gpx'));
+});
