@@ -1,5 +1,5 @@
 import { loadConfig } from './config.js';
-import { applyI18n, getLang, LANGS, setLang, t, weatherLabel } from './i18n.js';
+import { applyI18n, getLang, LANGS, NEWS, setLang, t, weatherLabel } from './i18n.js';
 import { parseGpx, GpxError } from './lib/gpx.js';
 import { bearingAround, buildTrack, elevationStats, pointAt, reverseTrack } from './lib/geo.js';
 import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
@@ -8,12 +8,14 @@ import { rankStarts } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
 import { buildGpx, fileName } from './lib/gpx-export.js';
+import { latestNews, unseenNews } from './lib/news.js';
 import { renderShareImage, toBlob } from './ui/export-image.js';
 import { registerPwa } from './pwa.js';
 import { createStartPicker } from './ui/start-picker.js';
 import { WeatherError } from './lib/weather.js';
 import { relativeWind, WIND } from './lib/wind.js';
 import { createMap, relLabel } from './ui/map.js';
+import { createNews } from './ui/news.js';
 import { createProfile } from './ui/profile.js';
 import * as f from './ui/format.js';
 
@@ -38,6 +40,15 @@ const store = {
     } catch {
       /* almacenamiento no disponible */
     }
+  },
+  /** ¿Ya había entrado antes? Hay algo guardado o un service worker de una visita anterior. */
+  used() {
+    try {
+      if (Object.keys(localStorage).some((k) => k.startsWith('gwr.'))) return true;
+    } catch {
+      /* almacenamiento no disponible */
+    }
+    return Boolean(navigator.serviceWorker?.controller);
   },
 };
 
@@ -65,9 +76,13 @@ const els = {
 
 const mapView = createMap($('map'), cfg);
 const profile = createProfile($('profile-canvas'), { onHover: hoverInfo, onPick: pickDistance });
+const news = createNews($('news'), $('news-list'));
 
 // --- Inicio ---
 function init() {
+  // Antes de guardar nada: así se distingue a quien vuelve de quien entra por primera vez.
+  const unseen = unseenNews(NEWS, store.get('newsSeen', null), store.used());
+  store.set('newsSeen', latestNews(NEWS));
   setLang(store.get('lang', cfg.defaultLang));
   if (cfg.appEnv !== 'pro') document.title = `(${cfg.appEnv}) ${document.title}`;
   $('app-name').textContent = cfg.appName;
@@ -122,11 +137,14 @@ function init() {
   $('export-gpx').addEventListener('click', onExportGpx);
   $('change-route').addEventListener('click', () => els.file.click());
   $('reverse-route').addEventListener('click', onReverse);
+  $('news-open').addEventListener('click', () => news.open(NEWS));
   setupDrop();
 
   refreshTexts();
   renderRecent();
   loadFromLink();
+  loadSharedFile();
+  if (unseen.length) news.open(unseen);
 
   registerPwa(cfg, '../sw.js', { installButton: $('install'), onInstalled: () => showMessage(t('installDone'), 'info') });
   const connection = () => (navigator.onLine ? null : showMessage(t('offline'), true));
@@ -138,6 +156,7 @@ function init() {
 function refreshTexts() {
   applyI18n();
   state.startPicker?.refresh();
+  news.refresh();
   $('credits').innerHTML = t('footer', {
     meteo: '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>',
     map: cfg.tileAttribution,
@@ -191,6 +210,26 @@ async function loadFile(file) {
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   showLoadedRoute();
   rememberRoute();
+}
+
+/** GPX recibido con «Compartir» desde otra app: el service worker lo deja en la caché (ver sw.js). */
+async function loadSharedFile() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('shared') || !('caches' in window)) return;
+  params.delete('shared');
+  const query = params.toString();
+  history.replaceState(null, '', location.pathname + (query ? `?${query}` : '') + location.hash);
+  try {
+    const cache = await caches.open('gwr-share');
+    const key = new URL('../shared.gpx', location.href).href; // junto a sw.js, que lo guarda
+    const response = await cache.match(key);
+    if (!response) return;
+    await cache.delete(key);
+    const name = decodeURIComponent(response.headers.get('X-File-Name') || 'ruta.gpx');
+    loadFile(new File([await response.blob()], name));
+  } catch {
+    showMessage(t('err_read'));
+  }
 }
 
 /** Prepara la interfaz para la ruta de state.track (de un GPX o de un enlace). */

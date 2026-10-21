@@ -404,6 +404,19 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
   :root:not([data-theme='light']) .leaflet-bar a { background: var(--surface); color: var(--ink); }
 }
 
+/* --- Novedades (ventana al abrir la app tras una actualización) --- */
+.news {
+  width: min(440px, calc(100% - 32px)); max-height: min(560px, calc(100% - 32px));
+  padding: 0; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  background: var(--surface); color: var(--ink);
+}
+.news::backdrop { background: rgb(15 23 29 / .45); }
+.news-box { display: grid; gap: 16px; padding: 20px; max-height: inherit; grid-template-rows: auto minmax(0, 1fr) auto; }
+.news-title { font: 600 26px/1.1 var(--font-figure); }
+.news-list { overflow-y: auto; display: grid; gap: 16px; align-content: start; }
+.news-date { font: 600 15px/1.2 var(--font-figure); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.news-items { padding-left: 18px; margin-top: 6px; display: grid; gap: 6px; }
+
 /* --- Móvil: el panel se deshace y el mapa queda entre el formulario y los resultados --- */
 @media (max-width: 860px) {
   :root { --profile-h: 140px; }

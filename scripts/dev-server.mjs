@@ -37,7 +37,7 @@ async function exists(file) {
 
 async function resolvePath(urlPath) {
   const safe = normalize(urlPath).replace(/^(\.\.[/\\])+/, '');
-  const local = join(web, safe.endsWith('/') ? `${safe}index.html` : safe);
+  const local = join(web, urlPath.endsWith('/') ? `${safe}index.html` : safe);
   if (await exists(local)) return local;
   for (const [prefix, dir] of Object.entries(vendor)) {
     if (urlPath.startsWith(prefix)) return join(dir, urlPath.slice(prefix.length));
