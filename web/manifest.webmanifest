@@ -50,5 +50,18 @@
         }
       ]
     }
+  },
+  "file_handlers": [
+    {
+      "action": "./app/",
+      "accept": {
+        "application/gpx+xml": [
+          ".gpx"
+        ]
+      }
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "focus-existing"
   }
 }

@@ -149,6 +149,10 @@ function init() {
   renderRecent();
   loadFromLink();
   loadSharedFile();
+  // Ordenador con la app instalada: abrir un .gpx con doble clic (file_handlers del manifiesto).
+  window.launchQueue?.setConsumer(async ({ files }) => {
+    if (files && files[0]) loadFile(await files[0].getFile());
+  });
   if (unseen.length) news.open(unseen);
 
   registerPwa(cfg, '../sw.js', { installButton: $('install'), onInstalled: () => showMessage(t('installDone'), 'info') });

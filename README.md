@@ -121,7 +121,7 @@ Con la app instalada en Android, GPX Weather Ride aparece en el menú **Comparti
 2. El service worker lo intercepta (GitHub Pages no admite POST), lo guarda en la caché `gwr-share` y redirige a `app/?shared`.
 3. La app lo lee de la caché, lo borra y lo carga como si se hubiera arrastrado.
 
-En iPhone y en el ordenador no existe este menú: se sigue subiendo el archivo. Para probarlo en local hay que registrar el service worker a mano, porque en desarrollo no se registra.
+En iPhone no existe este menú: se sigue subiendo el archivo. En el ordenador, con la app instalada en Chrome o Edge, un `.gpx` se puede abrir con doble clic o «Abrir con» (`file_handlers` del manifiesto y `launchQueue` en la app). Para probarlo en local hay que registrar el service worker a mano, porque en desarrollo no se registra.
 
 - En desarrollo (`npm run dev`, `appEnv: 'dev'`) no se registra, para no servir archivos antiguos.
 - Al añadir un archivo a `web/` hay que añadirlo a `PRECACHE` en `web/sw.js`; `test/pwa.test.js` falla si falta.
