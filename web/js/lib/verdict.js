@@ -70,6 +70,7 @@ export function verdict(plan, { comfortMin = 10, comfortMax = 25 } = {}) {
     else if (first && second && first.tail >= 0.5 && second.head >= 0.5) add('vWindTailThenHead');
     else if (total.head >= 0.4) add('vWindHead', { pct: total.head * 100 });
     else if (total.tail >= 0.4 && total.head < 0.15) add('vWindTail', { pct: total.tail * 100 });
+    else if (total.head < 0.1) add('vWindSide');
     else add('vWindMixed', { pct: total.head * 100 });
   }
   // Lo que el viento cambia la llegada (ritmo con viento, lib/pacing.js), si se nota.

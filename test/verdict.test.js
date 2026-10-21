@@ -28,7 +28,7 @@ test('viento del este: en contra a la ida y a favor a la vuelta', async () => {
 test('frío, rachas y lluvia a partir de una hora', async () => {
   // Llueve a partir de las 9:30 UTC; sensación = temp − 2.
   const v = verdict(await plan({ windDir: 0, windSpeed: 30, gusts: 60, temp: 6, precipProb: (i) => (i % 24 >= 10 ? 80 : 0) }));
-  assert.deepEqual(keys(v), ['vCold', 'vWindMixed', 'vGusts', 'vRainFrom']);
+  assert.deepEqual(keys(v), ['vCold', 'vWindSide', 'vGusts', 'vRainFrom']);
   const rain = v.find((x) => x.key === 'vRainFrom').vars;
   assert.ok(rain.timeMs >= at(9.5) && rain.timeMs <= at(10.5));
   assert.ok(rain.km > 0);
@@ -76,4 +76,11 @@ test('el resumen dice cuánto retrasa o adelanta el viento, si se nota', () => {
   assert.deepEqual(verdict({ ...base, windDelayMs: 12 * 60_000 }).map((v) => v.key), ['vWindSlow']);
   assert.equal(verdict({ ...base, windDelayMs: -8 * 60_000 })[0].vars.delayMs, 8 * 60_000);
   assert.deepEqual(verdict({ ...base, windDelayMs: 3 * 60_000 }), []);
+});
+
+test('con casi nada en contra no dice «en contra en el 0 %»', async () => {
+  // Ida y vuelta al este con viento del norte: todo lateral.
+  const v = verdict(await plan({ windDir: 0, windSpeed: 25, temp: 18, precipProb: 0 }));
+  assert.ok(keys(v).includes('vWindSide'));
+  assert.ok(!keys(v).includes('vWindMixed'));
 });
