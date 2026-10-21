@@ -70,3 +70,10 @@ test('las duraciones largas se leen en horas y minutos', async () => {
   assert.equal(span(75 * 60_000), '1 h 15 min');
   assert.equal(span(120 * 60_000), '2 h');
 });
+
+test('el resumen dice cuánto retrasa o adelanta el viento, si se nota', () => {
+  const base = { startMs: 0, endMs: 3600_000, distance: 10000, arrows: [], markers: [], segments: [], summary: { tempMin: null, windMax: 0, gustMax: 0, precipProbMax: 0, share: {} } };
+  assert.deepEqual(verdict({ ...base, windDelayMs: 12 * 60_000 }).map((v) => v.key), ['vWindSlow']);
+  assert.equal(verdict({ ...base, windDelayMs: -8 * 60_000 })[0].vars.delayMs, 8 * 60_000);
+  assert.deepEqual(verdict({ ...base, windDelayMs: 3 * 60_000 }), []);
+});

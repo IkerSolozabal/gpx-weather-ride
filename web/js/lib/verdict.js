@@ -11,6 +11,7 @@ const RAIN_LIKELY = 50; // % a partir del cual se avisa de la hora de la lluvia
 const RAIN_SOME = 20;
 const GUSTS_STRONG = 50; // km/h
 const WIND_LIGHT = 12; // km/h: por debajo, apenas se nota
+const WIND_DELAY = 5 * 60_000; // a partir de 5 min de retraso o adelanto se menciona
 
 /** Reparto del viento en un tramo [from, to) de la ruta: {head, tail} en tanto por uno. */
 function windShare(segments, from, to) {
@@ -71,6 +72,9 @@ export function verdict(plan, { comfortMin = 10, comfortMax = 25 } = {}) {
     else if (total.tail >= 0.4 && total.head < 0.15) add('vWindTail', { pct: total.tail * 100 });
     else add('vWindMixed', { pct: total.head * 100 });
   }
+  // Lo que el viento cambia la llegada (ritmo con viento, lib/pacing.js), si se nota.
+  if (plan.windDelayMs >= WIND_DELAY) add('vWindSlow', { delayMs: plan.windDelayMs });
+  else if (plan.windDelayMs <= -WIND_DELAY) add('vWindFast', { delayMs: -plan.windDelayMs });
   if (plan.summary.gustMax >= GUSTS_STRONG) add('vGusts', { kmh: plan.summary.gustMax });
 
   // Lluvia: desde dónde es probable, o si apenas hay.

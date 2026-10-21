@@ -45,6 +45,7 @@ El tiempo total no cambia (distancia ÷ media indicada); lo que cambia es cómo 
 - **Bici:** modelo de potencia (gravedad, rodadura y aire; CdA 0,4 m² y 85 kg con la bici). Se busca la potencia por kg con la que, en esta ruta, sale justo la media indicada. En las subidas se aprieta algo más (hasta +20 % al 10 %) y en las bajadas se limita a 45 km/h. En un puerto de 10 km al 7 %, entre una media de 22 y una de 26 km/h hay unos 11 minutos de diferencia; en 10 km llanos, menos de 2.
 - **Carrera:** coste energético de correr en pendiente (Minetti et al., 2002), la base del «ritmo ajustado a la pendiente» de Strava.
 - Sin altitudes en el GPX, velocidad constante.
+- **Viento (bici):** al calcular la meteo, cada tramo se recorre con el viento que hace al pasar por él: con el nivel ya deducido, de cara se va más lento y a favor más rápido, así que la llegada puede adelantarse o retrasarse respecto a la estimación sin viento. El viento del pronóstico es a 10 m de altura; a la altura del ciclista se toma un 65 %, y contra el viento se aprieta algo más (hasta +10 % con 20 km/h de cara). Con 10 km/h de cara, una media de 22 km/h en llano baja a unos 19. Si el viento cambia la llegada 5 minutos o más, el resumen lo dice. «¿Cuándo salgo?» compara sin este ajuste (ya penaliza el viento de cara por su cuenta). Corriendo no se aplica.
 
 Las pendientes se miden cada 200 m para no sumar el ruido del GPS. La lógica está en `web/js/lib/pacing.js`.
 

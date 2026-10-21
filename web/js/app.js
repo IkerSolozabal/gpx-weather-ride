@@ -3,13 +3,13 @@ import { applyI18n, getLang, LANGS, NEWS, setLang, t, weatherLabel } from './i18
 import { parseGpx, GpxError } from './lib/gpx.js';
 import { bearingAround, buildTrack, elevationStats, pointAt, reverseTrack } from './lib/geo.js';
 import { formatDuration, formatPace, kmhToPace, parsePace, paceToKmh } from './lib/timing.js';
-import { assemblePlan, fetchSeries, nearestSample } from './lib/plan.js';
+import { assemblePlan, fetchSeries, headwindAt, nearestSample } from './lib/plan.js';
 import { daylightWindows, rankDays } from './lib/beststart.js';
 import { decodeShare, encodeShare, ShareError } from './lib/share.js';
 import { addRecent, removeRecent, routeId, sanitizeRecent } from './lib/recent.js';
 import { buildGpx, fileName } from './lib/gpx-export.js';
 import { latestNews, unseenNews } from './lib/news.js';
-import { paceProfile } from './lib/pacing.js';
+import { paceProfile, windPace } from './lib/pacing.js';
 import { verdict } from './lib/verdict.js';
 import { renderShareImage, toBlob } from './ui/export-image.js';
 import { registerPwa } from './pwa.js';
@@ -646,8 +646,11 @@ async function getSeries(fromMs, toMs) {
 
 async function planFor(form) {
   const { startMs, speedKmh, sport } = form;
-  const pace = paceFor(form);
-  const { samples, series } = await getSeries(startMs, startMs + pace.totalMs);
+  const base = paceFor(form);
+  // Margen por si el viento retrasa la llegada (sin pasar del pronóstico).
+  const toMs = Math.min(startMs + base.totalMs * 1.5, Date.now() + cfg.forecastDays * DAY);
+  const { samples, series } = await getSeries(startMs, Math.max(toMs, startMs + base.totalMs));
+  const pace = windPace(state.track, base, headwindAt(state.track, samples, series, windOpts), startMs);
   return assemblePlan(state.track, samples, series, { ...planOptions(sport), startMs, speedKmh, pace });
 }
 
@@ -754,6 +757,7 @@ function verdictText(plan) {
         sunset: vars.sunsetMs ? f.time(vars.sunsetMs) : '',
         before: f.span(vars.beforeMs ?? 0),
         after: f.span(vars.afterMs ?? 0),
+        delay: f.span(vars.delayMs ?? 0),
       }),
     )
     .join(' ');
