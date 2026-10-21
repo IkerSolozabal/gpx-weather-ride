@@ -100,3 +100,11 @@ test('rankDays elige el mejor día con la misma franja horaria', async () => {
   assert.ok(list[1].startMs >= at(32) && list[1].startMs <= at(36));
   assert.equal(list[2].score, null); // día sin pronóstico
 });
+
+test('de madrugada cuenta el amanecer del mismo día, no el del anterior', async () => {
+  const { sunTimes } = await import('../web/js/lib/weather.js');
+  const s = toSeries(fakeLocation(DAY0 / 1000, 48));
+  assert.equal(sunTimes(s, at(24 + 5)).sunrise, at(24 + 7));
+  assert.equal(sunTimes(s, at(23)).sunset, at(18));
+  assert.equal(isDaylight(s, at(24 + 7.5)), true);
+});

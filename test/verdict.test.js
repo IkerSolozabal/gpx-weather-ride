@@ -50,3 +50,23 @@ test('las paradas retrasan la llegada y pueden hacer que se llegue de noche', as
   assert.equal(p.stopMs, 3600_000);
   assert.equal(verdict(p)[0].key, 'vDarkEnd');
 });
+
+test('salir de madrugada y terminar de día avisa del amanecer, no del anochecer', async () => {
+  // Amanecer 7:00 UTC. Salida 6:00 del segundo día → llegada 7:00 + algo.
+  const v = verdict(await plan({ windSpeed: 5, temp: 15 }, { startH: 24 + 6.25 }));
+  assert.equal(v[0].key, 'vDarkStart');
+  assert.ok(Math.abs(v[0].vars.beforeMs - 45 * 60_000) < 60_000);
+  assert.ok(!keys(v).includes('vDarkEnd'));
+});
+
+test('toda la ruta de noche: un solo aviso', async () => {
+  assert.equal(verdict(await plan({ windSpeed: 5, temp: 15 }, { startH: 24 + 4 }))[0].key, 'vDarkAll');
+  assert.equal(verdict(await plan({ windSpeed: 5, temp: 15 }, { startH: 20 }))[0].key, 'vDarkAll');
+});
+
+test('las duraciones largas se leen en horas y minutos', async () => {
+  const { span } = await import('../web/js/ui/format.js');
+  assert.equal(span(45 * 60_000), '45 min');
+  assert.equal(span(75 * 60_000), '1 h 15 min');
+  assert.equal(span(120 * 60_000), '2 h');
+});

@@ -28,6 +28,15 @@ export function time(ms, { withDay = false } = {}) {
   return new Intl.DateTimeFormat(locale(), opts).format(new Date(ms));
 }
 
+/** Duración legible: «45 min», «1 h 15 min» o «2 h». */
+export function span(ms) {
+  const mins = Math.max(1, Math.round(ms / 60_000));
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
 /** true si dos instantes caen en días distintos (hora local). */
 export const differentDay = (a, b) => new Date(a).toDateString() !== new Date(b).toDateString();
 

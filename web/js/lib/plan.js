@@ -86,10 +86,10 @@ export function assemblePlan(track, samples, series, opts) {
     speedKmh,
     stopMs: pace ? pace.stopMs : 0,
     timeAt: clock,
-    // Amanecer del día de salida y anochecer del de llegada (null si la API no los da).
+    // Amanecer y anochecer del día de salida y del de llegada (null si la API no los da).
     sun: {
-      sunrise: sunTimes(series[0], startMs)?.sunrise ?? null,
-      sunset: sunTimes(series[series.length - 1], endMs)?.sunset ?? null,
+      start: sunTimes(series[0], startMs),
+      end: sunTimes(series[series.length - 1], endMs),
     },
     elevation: elevationStats(track),
     markers,

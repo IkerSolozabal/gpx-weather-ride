@@ -38,9 +38,14 @@ export function verdict(plan, { comfortMin = 10, comfortMax = 25 } = {}) {
   const add = (key, vars = {}) => out.push({ key, vars });
 
   // Noche: lo primero, porque obliga a llevar luces.
-  const { sunrise, sunset } = plan.sun || {};
-  if (sunrise && plan.startMs < sunrise) add('vDarkStart', { sunriseMs: sunrise });
-  if (sunset && plan.endMs > sunset) add('vDarkEnd', { sunsetMs: sunset, afterMs: plan.endMs - sunset });
+  const { start, end } = plan.sun || {};
+  const dark = (t, sun) => Boolean(sun) && (t < sun.sunrise || t > sun.sunset);
+  const daylightInside = [start, end].some((sun) => sun && plan.startMs < sun.sunset && plan.endMs > sun.sunrise);
+  if (dark(plan.startMs, start) && dark(plan.endMs, end) && !daylightInside) add('vDarkAll');
+  else {
+    if (start && plan.startMs < start.sunrise) add('vDarkStart', { sunriseMs: start.sunrise, beforeMs: start.sunrise - plan.startMs });
+    if (end && plan.endMs > end.sunset) add('vDarkEnd', { sunsetMs: end.sunset, afterMs: plan.endMs - end.sunset });
+  }
 
   // Temperatura (por sensación térmica).
   const ws = plan.arrows.map((a) => a.weather).filter(Boolean);

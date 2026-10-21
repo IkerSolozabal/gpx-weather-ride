@@ -688,7 +688,8 @@ function verdictText(plan) {
         time: vars.timeMs ? f.time(vars.timeMs) : '',
         sunrise: vars.sunriseMs ? f.time(vars.sunriseMs) : '',
         sunset: vars.sunsetMs ? f.time(vars.sunsetMs) : '',
-        after: Math.round((vars.afterMs ?? 0) / 60_000),
+        before: f.span(vars.beforeMs ?? 0),
+        after: f.span(vars.afterMs ?? 0),
       }),
     )
     .join(' ');
