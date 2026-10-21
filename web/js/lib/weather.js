@@ -69,15 +69,21 @@ export function toSeries(location) {
   };
 }
 
-/** true si el instante cae entre el amanecer y el anochecer; null si no hay datos de ese día. */
-export function isDaylight(series, tMs) {
+/** Amanecer y anochecer (ms) del día en que cae el instante; null si no hay datos de ese día. */
+export function sunTimes(series, tMs) {
   const { sunrise = [], sunset = [] } = series;
   for (let i = 0; i < sunrise.length; i++) {
     const dayStart = sunrise[i] - 12 * 3600_000;
     const dayEnd = sunset[i] + 12 * 3600_000;
-    if (tMs >= dayStart && tMs < dayEnd) return tMs >= sunrise[i] && tMs <= sunset[i];
+    if (tMs >= dayStart && tMs < dayEnd) return { sunrise: sunrise[i], sunset: sunset[i] };
   }
   return null;
+}
+
+/** true si el instante cae entre el amanecer y el anochecer; null si no hay datos de ese día. */
+export function isDaylight(series, tMs) {
+  const sun = sunTimes(series, tMs);
+  return sun ? tMs >= sun.sunrise && tMs <= sun.sunset : null;
 }
 
 /**

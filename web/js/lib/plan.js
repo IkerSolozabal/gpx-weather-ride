@@ -5,7 +5,7 @@
 
 import { bearingAround, distanceSteps, elevationStats, pointAt, sliceTrack } from './geo.js';
 import { makeClock } from './timing.js';
-import { fetchForecast, weatherAt } from './weather.js';
+import { fetchForecast, sunTimes, weatherAt } from './weather.js';
 import { relativeWind, WIND } from './wind.js';
 
 /**
@@ -86,6 +86,11 @@ export function assemblePlan(track, samples, series, opts) {
     speedKmh,
     stopMs: pace ? pace.stopMs : 0,
     timeAt: clock,
+    // Amanecer del día de salida y anochecer del de llegada (null si la API no los da).
+    sun: {
+      sunrise: sunTimes(series[0], startMs)?.sunrise ?? null,
+      sunset: sunTimes(series[series.length - 1], endMs)?.sunset ?? null,
+    },
     elevation: elevationStats(track),
     markers,
     segments,

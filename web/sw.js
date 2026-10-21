@@ -55,6 +55,7 @@ const PRECACHE = [
   './js/lib/share.js',
   './js/lib/tiles.js',
   './js/lib/timing.js',
+  './js/lib/verdict.js',
   './js/lib/weather.js',
   './js/lib/wind.js',
   './js/ui/export-image.js',
