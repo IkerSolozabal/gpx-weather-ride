@@ -87,3 +87,16 @@ test('el GPX de ejemplo de los tests sobrevive al enlace sin altitud', async () 
   assert.equal(out.points[0].ele, null);
   assert.equal(out.sport, null);
 });
+
+test('simplify no se come un puerto en una recta: conserva la altitud', async () => {
+  const { elevationStats } = await import('../web/js/lib/geo.js');
+  // 30 km en línea recta: llano, sube 700 m y vuelve a bajar.
+  const pts = straightLine({ km: 30, stepM: 100 }).map((p, i) => {
+    const m = i * 100;
+    return { ...p, ele: m <= 10000 ? 100 : m <= 20000 ? 100 + (m - 10000) * 0.07 : 800 - (m - 20000) * 0.07 };
+  });
+  const s = simplify(pts, 5);
+  assert.ok(s.length >= 4 && s.length < 20, `${s.length} puntos`);
+  const gain = elevationStats(buildTrack(s)).gain;
+  assert.ok(Math.abs(gain - 700) < 15, `desnivel ${gain}`);
+});

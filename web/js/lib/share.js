@@ -87,7 +87,13 @@ export function decodePolyline(str) {
 
 // --- Simplificación (Douglas-Peucker) y recorte de los extremos ---
 
-/** Distancia en metros de p al segmento a-b (proyección local equirectangular). */
+/**
+ * Distancia en metros de p al segmento a-b (proyección local equirectangular).
+ * Si los tres tienen altitud, cuenta también lo que se perdería de altitud al
+ * quitar p (dividido por ELE_FACTOR): sin esto, una recta que sube y baja se
+ * quedaría en sus dos extremos y el ritmo por pendiente no vería el puerto.
+ */
+const ELE_FACTOR = 2; // 10 m de altitud valen como 5 m en planta
 function segDistance(p, a, b) {
   const k = Math.cos((a.lat * Math.PI) / 180) * 111320;
   const ax = a.lon * k;
@@ -98,7 +104,9 @@ function segDistance(p, a, b) {
   const py = p.lat * 110540 - ay;
   const len2 = bx * bx + by * by;
   const t = len2 ? Math.max(0, Math.min(1, (px * bx + py * by) / len2)) : 0;
-  return Math.hypot(px - t * bx, py - t * by);
+  const flat = Math.hypot(px - t * bx, py - t * by);
+  if (![p.ele, a.ele, b.ele].every(Number.isFinite)) return flat;
+  return Math.max(flat, Math.abs(p.ele - (a.ele + t * (b.ele - a.ele))) / ELE_FACTOR);
 }
 
 /** Simplifica la ruta manteniendo cada punto a menos de `tolerance` metros del original. */
