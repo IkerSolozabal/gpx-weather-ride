@@ -47,7 +47,7 @@ test('trimEnds quita 500 m al principio y al final, salvo en rutas cortas', () =
 
 test('encodeShare/decodeShare: ida y vuelta con nombre, salida, deporte y velocidad', async () => {
   const track = buildTrack(wigglyRoute());
-  const { hash } = await encodeShare(track, { name: 'Vuelta & café', startMs: Date.parse('2026-10-18T07:30:00Z'), sport: 'bike', speedKmh: 27.5 });
+  const { hash } = await encodeShare(track, { name: 'Vuelta & café', startMs: Date.parse('2026-10-18T07:30:00Z'), sport: 'bike', speedKmh: 27.5, stopMin: 25 });
   assert.ok(hash.startsWith('r='));
   assert.ok(hash.length < 7000, `longitud ${hash.length}`);
   const out = await decodeShare(`#${hash}`);
@@ -55,6 +55,7 @@ test('encodeShare/decodeShare: ida y vuelta con nombre, salida, deporte y veloci
   assert.equal(out.startMs, Date.parse('2026-10-18T07:30:00Z'));
   assert.equal(out.sport, 'bike');
   assert.equal(out.speedKmh, 27.5);
+  assert.equal(out.stopMin, 25);
   assert.ok(Number.isInteger(out.points[0].ele));
   const shared = buildTrack(out.points);
   // Distancia muy parecida: la original menos 1 km recortado, con margen por la simplificación.

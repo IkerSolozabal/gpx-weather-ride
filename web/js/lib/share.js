@@ -167,10 +167,10 @@ export class ShareError extends Error {
  * Genera el fragmento del enlace (sin "#") para una ruta.
  * Ajusta la simplificación hasta que el fragmento cabe en `maxLength` caracteres.
  * @param {object} track Resultado de buildTrack.
- * @param {{name?, startMs?, sport?, speedKmh?, hideMeters?, maxLength?}} opts
+ * @param {{name?, startMs?, sport?, speedKmh?, stopMin?, hideMeters?, maxLength?}} opts
  */
 export async function encodeShare(track, opts = {}) {
-  const { name = '', startMs, sport, speedKmh, hideMeters = 500, maxLength = 7000, tolerance: startTolerance = 5 } = opts;
+  const { name = '', startMs, sport, speedKmh, stopMin, hideMeters = 500, maxLength = 7000, tolerance: startTolerance = 5 } = opts;
   const base = trimEnds(track, hideMeters);
   let tolerance = startTolerance;
   for (let attempt = 0; attempt < 12; attempt++) {
@@ -181,6 +181,7 @@ export async function encodeShare(track, opts = {}) {
     if (Number.isFinite(startMs)) payload.t = Math.round(startMs / 60_000) * 60_000;
     if (sport) payload.s = sport;
     if (speedKmh > 0) payload.k = Math.round(speedKmh * 100) / 100;
+    if (stopMin > 0) payload.m = Math.round(stopMin);
     const json = new TextEncoder().encode(JSON.stringify(payload));
     const hash = `r=${toBase64Url(await pipe(json, new CompressionStream('deflate-raw')))}`;
     if (hash.length <= maxLength) return { hash, points: pts.length, tolerance };
@@ -191,7 +192,7 @@ export async function encodeShare(track, opts = {}) {
 
 /**
  * Lee un fragmento "r=…" (con o sin "#"). Devuelve null si no hay ruta compartida.
- * @returns {Promise<{name, points, startMs, sport, speedKmh}|null>}
+ * @returns {Promise<{name, points, startMs, sport, speedKmh, stopMin}|null>}
  */
 export async function decodeShare(hash) {
   const m = String(hash || '').match(/(?:^#?|&)r=([A-Za-z0-9_-]+)/);
@@ -214,6 +215,7 @@ export async function decodeShare(hash) {
     startMs: Number.isFinite(data.t) ? data.t : null,
     sport: data.s === 'run' ? 'run' : data.s === 'bike' ? 'bike' : null,
     speedKmh: data.k > 0 ? data.k : null,
+    stopMin: data.m > 0 ? data.m : 0,
   };
 }
 
