@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildTrack } from '../web/js/lib/geo.js';
-import { bikeSpeed, gradeProfile, paceProfile, runCost } from '../web/js/lib/pacing.js';
+import { bikeSpeed, gradeProfile, paceProfile, runCost, windPace } from '../web/js/lib/pacing.js';
 import { straightLine } from './helpers.js';
 
 /** 10 km llanos, 10 km de puerto al 7 % y 10 km de bajada. */
@@ -73,7 +73,7 @@ test('con más media se deduce más nivel y el puerto se sube bastante más ráp
 test('la misma media en una ruta más dura indica más nivel', () => {
   const hilly = paceProfile(climbRoute(), { sport: 'bike', speedKmh: 24 });
   const flat = paceProfile(buildTrack(straightLine({ km: 30, stepM: 100, ele: 100 })), { sport: 'bike', speedKmh: 24 });
-  assert.equal(flat.wkg, null); // en llano no hace falta: velocidad constante
+  assert.ok(flat.wkg < hilly.wkg); // misma media en llano: menos nivel
   const hillyFlatKmh = 10 / (hilly.offset(10000) / 3600_000);
   assert.ok(hillyFlatKmh > 24, `en el llano de la ruta dura va a ${hillyFlatKmh.toFixed(1)} km/h`);
 });
@@ -97,4 +97,42 @@ test('bikeSpeed respeta los límites y gradeProfile recorta pendientes absurdas'
   assert.ok(bikeSpeed(0.5, 0.25) * 3.6 >= 4 - 1e-9);
   const spike = buildTrack(straightLine({ km: 1, stepM: 100 }).map((p, i) => ({ ...p, ele: i === 5 ? 500 : 0 })));
   assert.ok(gradeProfile(spike).every((s) => Math.abs(s.grade) <= 0.3));
+});
+
+test('viento: de cara se tarda más, a favor menos, y sin viento sale lo mismo', () => {
+  const track = climbRoute();
+  const base = paceProfile(track, { sport: 'bike', speedKmh: 24, stops: [{ km: 15, min: 10 }] });
+  const calm = windPace(track, base, () => 0, 0);
+  assert.ok(Math.abs(calm.totalMs - base.totalMs) < 1);
+  assert.ok(Math.abs(calm.offset(12000) - base.offset(12000)) < 1);
+  const head = windPace(track, base, () => 20, 0);
+  const tail = windPace(track, base, () => -20, 0);
+  assert.ok(head.windDelayMs > 5 * 60_000, `de cara retrasa ${head.windDelayMs / 60_000} min`);
+  assert.ok(tail.windDelayMs < -3 * 60_000, `a favor adelanta ${-tail.windDelayMs / 60_000} min`);
+  assert.equal(head.stopMs, base.stopMs);
+});
+
+test('viento: pesa más en llano que en el puerto, y corriendo no cambia', () => {
+  const track = climbRoute();
+  const base = paceProfile(track, { sport: 'bike', speedKmh: 24 });
+  const head = windPace(track, base, () => 20, 0);
+  const extra = (a, b) => head.offset(b) - head.offset(a) - (base.offset(b) - base.offset(a));
+  const flat = extra(0, 10000) / (base.offset(10000) - base.offset(0));
+  const climb = extra(10000, 20000) / (base.offset(20000) - base.offset(10000));
+  assert.ok(flat > climb * 2, `llano +${Math.round(flat * 100)} %, puerto +${Math.round(climb * 100)} %`);
+  const run = paceProfile(track, { sport: 'run', speedKmh: 10 });
+  assert.equal(windPace(track, run, () => 20, 0).windDelayMs, 0);
+});
+
+test('viento: también en una ruta llana, y se usa el que hay al pasar por cada tramo', () => {
+  const flatTrack = buildTrack(straightLine({ km: 20, stepM: 100, ele: 100 }));
+  const flat = paceProfile(flatTrack, { sport: 'bike', speedKmh: 25 });
+  assert.ok(Math.abs(windPace(flatTrack, flat, () => 0, 0).totalMs - flat.totalMs) < 1);
+  assert.ok(windPace(flatTrack, flat, () => 20, 0).windDelayMs > 5 * 60_000);
+  // Viento de cara solo a partir de los 30 min desde la salida.
+  const track = climbRoute();
+  const base = paceProfile(track, { sport: 'bike', speedKmh: 24 });
+  const later = windPace(track, base, (d, t) => (t >= 30 * 60_000 ? 25 : 0), 0);
+  assert.ok(Math.abs(later.offset(5000) - base.offset(5000)) < 1);
+  assert.ok(later.offset(track.total) > base.offset(track.total) + 60_000);
 });

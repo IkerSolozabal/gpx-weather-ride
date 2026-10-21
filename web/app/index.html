@@ -124,16 +124,25 @@
         <p class="message" id="message" role="alert" hidden></p>
 
         <div class="share-quick" id="share-quick" hidden>
-          <button type="button" class="secondary" id="share-run" disabled>
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4M21 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm12 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span data-i18n="shareRun">Compartir enlace</span>
-          </button>
-          <label class="check">
-            <input type="checkbox" id="share-hide" checked>
-            <span data-i18n="shareHide">Ocultar los primeros y últimos 500 m</span>
-          </label>
+          <p class="share-label" data-i18n="shareLabel">Compartir</p>
+          <div class="share-actions">
+            <button type="button" class="secondary" id="share-run" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span data-i18n="shareRun">Enlace</span>
+            </button>
+            <button type="button" class="secondary" id="export-image" disabled>
+              <span class="spinner" aria-hidden="true"></span>
+              <svg class="icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9.5h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span data-i18n="exportImage">Imagen</span>
+            </button>
+            <button type="button" class="secondary" id="export-gpx" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span data-i18n="exportGpx">GPX</span>
+            </button>
+          </div>
           <p class="share-status" id="share-status" aria-live="polite" hidden></p>
           <input type="text" class="share-link" id="share-link" readonly hidden aria-label="Enlace">
+          <img class="export-preview" id="export-preview" alt="" hidden>
         </div>
 
         <details class="advanced" id="advanced">
@@ -147,8 +156,8 @@
           </section>
 
           <section class="adv-block" aria-labelledby="h-best">
-            <h3 class="adv-title" id="h-best" data-i18n="bestTitle">Mejor hora de salida</h3>
-            <p class="adv-hint" data-i18n="bestHint">Compara varias salidas el mismo día y te sugiere la mejor.</p>
+            <h3 class="adv-title" id="h-best" data-i18n="bestTitle">Mejor momento para salir</h3>
+            <p class="adv-hint" data-i18n="bestHint">Compara las horas que elijas del día de salida y, a tu hora de salida, los próximos días.</p>
             <div class="fields">
               <label class="field">
                 <span class="field-label" data-i18n="bestFrom">Desde</span>
@@ -168,32 +177,13 @@
                 <option value="temp" data-i18n="prioTemp">Frío o calor</option>
               </select>
             </label>
-            <label class="check">
-              <input type="checkbox" id="best-days">
-              <span data-i18n="bestDays">Comparar la misma franja en los próximos días</span>
-            </label>
             <button type="button" class="secondary" id="best-run" disabled>
               <span class="spinner" aria-hidden="true"></span>
-              <span data-i18n="bestRun">Comparar horas</span>
+              <span data-i18n="bestRun">Comparar</span>
             </button>
             <div class="best" id="best-results" aria-live="polite" hidden></div>
           </section>
 
-          <section class="adv-block" aria-labelledby="h-export">
-            <h3 class="adv-title" id="h-export" data-i18n="exportTitle">Exportar</h3>
-            <p class="adv-hint" data-i18n="exportHint">Una imagen con el mapa, el perfil y las horas de paso para WhatsApp o Strava, o un GPX con la meteo en cada punto para tu GPS.</p>
-            <div class="export-actions">
-              <button type="button" class="secondary" id="export-image" disabled>
-                <span class="spinner" aria-hidden="true"></span>
-                <span data-i18n="exportImage">Crear imagen</span>
-              </button>
-              <button type="button" class="secondary" id="export-gpx" disabled>
-                <span data-i18n="exportGpx">GPX con avisos</span>
-              </button>
-            </div>
-            <p class="share-status" id="export-status" aria-live="polite" data-i18n="exportNeedPlan">Calcula primero la meteo de la ruta.</p>
-            <img class="export-preview" id="export-preview" alt="" hidden>
-          </section>
         </details>
       </form>
 

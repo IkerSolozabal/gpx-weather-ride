@@ -280,17 +280,21 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .check { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; cursor: pointer; }
 .check input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--ink); }
 .share-quick { display: grid; gap: 8px; }
+.share-label { font-size: 13px; color: var(--muted); margin-bottom: -2px; }
+.share-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.share-actions .secondary { padding: 0 8px; }
+.share-actions .is-loading .icon { display: none; }
 .share-status { font-size: 14px; color: var(--muted); }
 .share-link {
   width: 100%; height: 36px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
   padding: 0 8px; font-size: 12.5px; background: var(--paper); color: var(--muted);
 }
-.export-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .export-preview { width: 100%; border-radius: var(--r-md); box-shadow: 0 0 0 1px var(--line); }
 .message.is-info { background: color-mix(in srgb, var(--tail) 12%, var(--surface)); border-left-color: var(--tail); }
 
 /* Resultado: una fila por hora de salida, barra = lo buena que es respecto a las demás */
 .best { display: grid; gap: 10px; }
+.best-head { font: 600 15px/1.2 var(--font-figure); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 6px; }
 .best-summary { font-size: 14px; }
 .best-summary b { font: 600 17px/1 var(--font-figure); }
 .best-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
@@ -395,6 +399,11 @@ body:has(.pre-banner:not([hidden])) .layout { height: calc(100dvh - 27px); }
 .flag-marker {
   font: 700 12px/20px var(--font-figure); text-align: center; color: #fff;
   border-radius: 4px; white-space: nowrap; padding: 0 6px;
+}
+.stop-marker {
+  font: 700 13px/21px var(--font-figure); text-align: center; color: var(--surface);
+  background: var(--ink); border: 1.5px solid var(--surface); border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .35);
 }
 .flag-start { background: var(--tail); }
 .flag-finish { background: var(--ink); color: var(--surface); }

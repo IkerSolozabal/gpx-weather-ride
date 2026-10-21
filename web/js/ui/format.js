@@ -28,6 +28,11 @@ export function time(ms, { withDay = false } = {}) {
   return new Intl.DateTimeFormat(locale(), opts).format(new Date(ms));
 }
 
+/** Día corto: «jue 23» / «Thu 23». */
+export function day(ms) {
+  return new Intl.DateTimeFormat(locale(), { weekday: 'short', day: 'numeric' }).format(new Date(ms));
+}
+
 /** Duración legible: «45 min», «1 h 15 min» o «2 h». */
 export function span(ms) {
   const mins = Math.max(1, Math.round(ms / 60_000));

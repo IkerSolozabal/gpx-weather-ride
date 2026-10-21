@@ -1,7 +1,7 @@
 /**
- * Imagen para compartir (PNG 1080×1350, formato vertical de móvil) con cinco zonas:
- * cabecera con las cifras, el resumen en frases (si lo hay), mapa con la ruta coloreada
- * por el viento, perfil y horas de paso.
+ * Imagen para compartir (PNG 1080×1350, formato vertical de móvil): cabecera con las cifras,
+ * el resumen en frases y las paradas (si las hay), mapa con la ruta coloreada por el viento
+ * y las paradas numeradas, perfil y horas de paso.
  * Se dibuja en un canvas sin Leaflet; las teselas del mapa se piden con CORS.
  */
 
@@ -91,6 +91,59 @@ function drawVerdict(ctx, text, { x, y, w }) {
   ctx.fillRect(x, y, 6, h);
   lines.forEach((l, i) => ctx.fillText(l, x + 26, y + 13 + lh * (i + 1) - 10));
   return h;
+}
+
+/** Círculo oscuro con el número de la parada (el mismo que en el mapa de la app). */
+function stopBadge(ctx, x, y, n, r = 15) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = C.ink;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 ${Math.round(r * 1.25)}px ${FIG}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(n), x, y + 1);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
+/**
+ * Paradas previstas: «Paradas ① km 8 · 10:19 · 10 min ② …», en una o dos líneas.
+ * Devuelve la altura ocupada (0 si no hay paradas).
+ */
+function drawStops(ctx, stops, { withDay }, { x, y, w }) {
+  if (!stops || !stops.length) return 0;
+  const lh = 40;
+  ctx.font = `600 24px ${FIG}`;
+  ctx.fillStyle = C.muted;
+  ctx.textBaseline = 'middle';
+  const label = t('stopsImage');
+  ctx.fillText(label, x, y + lh / 2);
+  let cx = x + ctx.measureText(label).width + 18;
+  let cy = y + lh / 2;
+  let lines = 1;
+  ctx.font = `500 24px ${TXT}`;
+  stops.forEach((st, i) => {
+    const text = `km ${f.kmMark(st.d)} · ${f.time(st.arriveMs, { withDay })} · ${f.span(st.ms)}`;
+    const width = 30 + 10 + ctx.measureText(text).width + 28;
+    if (cx + width - 28 > x + w && cx > x + 200 && lines < 2) {
+      lines += 1;
+      cx = x;
+      cy += lh;
+    }
+    stopBadge(ctx, cx + 15, cy, i + 1, 14);
+    ctx.font = `500 24px ${TXT}`;
+    ctx.fillStyle = C.ink;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(fitText(ctx, text, x + w - cx - 40), cx + 40, cy + 1);
+    cx += width;
+  });
+  ctx.textBaseline = 'alphabetic';
+  return lines * lh;
 }
 
 /** Flecha que apunta hacia donde sopla el viento. */
@@ -225,44 +278,95 @@ async function drawMap(ctx, { track, plan, tileTemplate }, box) {
     ctx.stroke();
   }
 
-  // Puntos kilométricos (los mismos que en la tabla de abajo)
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  for (const m of box.markers.slice(1, -1)) {
-    const [x, y] = pt(m);
-    const label = f.kmMark(m.d);
-    ctx.font = `700 22px ${FIG}`;
-    const w = Math.max(30, ctx.measureText(label).width + 16);
-    roundRect(ctx, x - w / 2, y - 14, w, 28, 14);
-    ctx.fillStyle = C.surface;
+  // Etiquetas sin tapar la ruta: un punto sobre el trazado y el texto a un lado, en perpendicular.
+  // Primero lo imprescindible (salida, llegada y paradas); los km, solo donde quepan sin solaparse.
+  const placed = [];
+  const fits = (r) =>
+    r.x >= box.x + 4 && r.y >= box.y + 4 && r.x + r.w <= box.x + box.w - 4 && r.y + r.h <= box.y + box.h - 4 &&
+    !placed.some((q) => r.x < q.x + q.w + 4 && r.x + r.w + 4 > q.x && r.y < q.y + q.h + 4 && r.y + r.h + 4 > q.y);
+  /** Perpendicular al trazado en la distancia d (en píxeles), apuntando hacia la derecha de la imagen. */
+  const normalAt = (d) => {
+    const [ax, ay] = pt(pointAt(track, Math.max(0, d - 150)));
+    const [bx, by] = pt(pointAt(track, Math.min(track.total, d + 150)));
+    const len = Math.hypot(bx - ax, by - ay) || 1;
+    const nx = -(by - ay) / len;
+    const ny = (bx - ax) / len;
+    return nx < 0 || (nx === 0 && ny < 0) ? [-nx, -ny] : [nx, ny];
+  };
+  /** Rectángulo w×h a un lado (side = 1 o −1) del punto, separado `gap` píxeles del trazado. */
+  const beside = ([x, y], [nx, ny], side, w, h, gap) => {
+    const dist = gap + (Math.abs(nx) * w) / 2 + (Math.abs(ny) * h) / 2;
+    const cx = x + side * nx * dist;
+    const cy = y + side * ny * dist;
+    return { x: cx - w / 2, y: cy - h / 2, w, h, cx, cy };
+  };
+  const dot = ([x, y], r, fill) => {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
     ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#fff';
     ctx.stroke();
-    ctx.fillStyle = C.ink;
-    ctx.fillText(label, x, y + 1);
-  }
+  };
+
   // Salida y llegada
   const flag = (p, text, bg, fg, dy) => {
     const [x, y] = pt(p);
-    ctx.font = `700 22px ${FIG}`;
-    const w = ctx.measureText(text).width + 18;
-    roundRect(ctx, x + 6, y + dy, w, 30, 5);
+    ctx.font = `700 21px ${FIG}`;
+    const w = ctx.measureText(text).width + 16;
+    roundRect(ctx, x + 6, y + dy, w, 28, 5);
     ctx.fillStyle = bg;
     ctx.fill();
     ctx.fillStyle = fg;
     ctx.textAlign = 'left';
-    ctx.fillText(text, x + 15, y + dy + 16);
-    ctx.beginPath();
-    ctx.arc(x, y, 7, 0, Math.PI * 2);
-    ctx.fillStyle = bg;
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#fff';
-    ctx.stroke();
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + 14, y + dy + 15);
+    dot([x, y], 6, bg);
+    placed.push({ x: x + 6, y: y + dy, w, h: 28 }, { x: x - 8, y: y - 8, w: 16, h: 16 });
   };
-  flag(track.points[0], t('startPoint'), C.tail, '#fff', -38);
+  flag(track.points[0], t('startPoint'), C.tail, '#fff', -36);
   flag(track.points[track.points.length - 1], t('finishPoint'), C.ink, '#fff', 8);
+
+  // Paradas: punto en la ruta y su número al lado, unidos por una raya.
+  (plan.stops || []).forEach((st, i) => {
+    const at = pt(st);
+    const n = normalAt(st.d);
+    const r = beside(at, n, -1, 24, 24, 12);
+    const spot = fits(r) ? r : fits(beside(at, n, 1, 24, 24, 12)) ? beside(at, n, 1, 24, 24, 12) : r;
+    ctx.beginPath();
+    ctx.moveTo(...at);
+    ctx.lineTo(spot.cx, spot.cy);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = C.ink;
+    ctx.stroke();
+    dot(at, 4.5, C.ink);
+    stopBadge(ctx, spot.cx, spot.cy, i + 1, 12);
+    placed.push(spot);
+  });
+
+  // Puntos kilométricos (los mismos que en la tabla de abajo), pequeños y a un lado.
+  for (const m of box.markers.slice(1, -1)) {
+    const at = pt(m);
+    const label = f.kmMark(m.d);
+    ctx.font = `600 17px ${FIG}`;
+    const w = Math.max(24, ctx.measureText(label).width + 12);
+    const n = normalAt(m.d);
+    const r = [beside(at, n, 1, w, 22, 9), beside(at, n, -1, w, 22, 9)].find(fits);
+    if (!r) continue;
+    placed.push(r);
+    dot(at, 3.5, C.ink);
+    roundRect(ctx, r.x, r.y, w, 22, 11);
+    ctx.fillStyle = C.surface;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = C.ink;
+    ctx.stroke();
+    ctx.fillStyle = C.ink;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, r.cx, r.cy + 1);
+  }
   ctx.restore();
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -412,7 +516,9 @@ export async function renderShareImage(data) {
   drawHeader(ctx, data);
   // El resumen va entre la cabecera y el mapa, que se acorta lo que ocupe.
   const vh = drawVerdict(ctx, data.verdict, { x: PAD, y: 340, w: W - 2 * PAD });
-  const shift = vh ? vh + 14 : 0;
+  const top = vh ? 340 + vh + 8 : 334;
+  const sh = drawStops(ctx, data.plan.stops, { withDay: f.differentDay(data.plan.startMs, data.plan.endMs) }, { x: PAD, y: top, w: W - 2 * PAD });
+  const shift = (vh ? vh + 14 : 0) + (sh ? sh + 4 : 0);
   const tilesOk = await drawMap(ctx, data, { x: PAD, y: 346 + shift, w: W - 2 * PAD, h: 440 - shift, markers });
   drawProfile(ctx, data, { x: PAD, y: 806, w: W - 2 * PAD, h: 210 });
   drawTimes(ctx, data, { x: PAD, y: 1030, w: W - 2 * PAD, h: 262 }, markers);
