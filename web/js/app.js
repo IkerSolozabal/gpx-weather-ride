@@ -406,6 +406,7 @@ async function onExportImage() {
       track: state.track,
       plan: state.plan,
       routeName: displayName(),
+      verdict: verdictText(state.plan),
       elevation: elevationStats(state.track),
       tileTemplate: cfg.tileUrl,
       siteLabel: location.host || 'GPX Weather Ride',
