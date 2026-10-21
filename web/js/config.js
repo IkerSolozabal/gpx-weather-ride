@@ -9,6 +9,7 @@ export const DEFAULTS = Object.freeze({
   appName: 'GPX Weather Ride',
   appVersion: '',
   defaultLang: 'es',
+  newsEnabled: 'true', // 'false': sin ventana de novedades ni enlace al pie
 
   weatherApiUrl: 'https://api.open-meteo.com/v1/forecast',
   weatherApiKey: '',
@@ -55,5 +56,6 @@ export function loadConfig(raw = globalThis.window?.APP_CONFIG || {}) {
   }
   if (!['bike', 'run'].includes(cfg.defaultSport)) cfg.defaultSport = DEFAULTS.defaultSport;
   if (!['es', 'en'].includes(cfg.defaultLang)) cfg.defaultLang = DEFAULTS.defaultLang;
+  if (!['true', 'false'].includes(cfg.newsEnabled)) cfg.newsEnabled = DEFAULTS.newsEnabled;
   return Object.freeze(cfg);
 }

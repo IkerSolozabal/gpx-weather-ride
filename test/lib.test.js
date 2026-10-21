@@ -213,4 +213,7 @@ test('loadConfig convierte números, ignora vacíos y valores no válidos', asyn
   assert.equal(cfg.appEnv, 'pre');
   assert.equal(cfg.maxSamples, DEFAULTS.maxSamples);
   assert.equal('unknown' in cfg, false);
+  assert.equal(cfg.newsEnabled, 'true');
+  assert.equal(loadConfig({ newsEnabled: 'false' }).newsEnabled, 'false');
+  assert.equal(loadConfig({ newsEnabled: 'no' }).newsEnabled, 'true');
 });
