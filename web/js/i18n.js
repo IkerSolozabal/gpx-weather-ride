@@ -179,6 +179,9 @@ const STRINGS = {
     timeEarlier: '15 minutos antes',
     timeLater: '15 minutos después',
     warnMissing: 'Parte de la ruta queda fuera del pronóstico disponible y aparece sin datos.',
+    newsTitle: 'Novedades',
+    newsOk: 'Entendido',
+    newsLink: 'Novedades',
   },
   en: {
     tagline: 'Wind, temperature and passing time for every stretch of your route.',
@@ -357,10 +360,41 @@ const STRINGS = {
     timeEarlier: '15 minutes earlier',
     timeLater: '15 minutes later',
     warnMissing: 'Part of the route falls outside the available forecast and shows no data.',
+    newsTitle: "What's new",
+    newsOk: 'Got it',
+    newsLink: "What's new",
   },
 };
 
 let current = 'es';
+
+/**
+ * Novedades que ve quien ya usaba la app (ver lib/news.js). La más reciente arriba.
+ * Para anunciar algo al publicar en producción, añade una entrada con la fecha de hoy.
+ */
+export const NEWS = [
+  {
+    id: '2026-10-21',
+    es: [
+      'Elige el día de salida con un botón y escribe la hora como quieras: «8», «830» o «8:30».',
+      'Compara varias horas de salida y te sugiere la mejor, en «Más opciones».',
+      'Comparte la ruta con un enlace, o expórtala como imagen o como GPX con avisos para tu GPS.',
+      'Tus últimas rutas quedan guardadas en este navegador y puedes recorrerlas en sentido contrario.',
+      'Instálala como app y abre tus rutas recientes incluso sin conexión.',
+    ],
+    en: [
+      'Pick the start day with a button and type the time any way you like: “8”, “830” or “8:30”.',
+      'Compare several start times and get the best one suggested, under “More options”.',
+      'Share the route with a link, or export it as an image or as a GPX with alerts for your GPS.',
+      'Your latest routes are kept in this browser and you can ride them the other way.',
+      'Install it as an app and open your recent routes even offline.',
+    ],
+  },
+];
+
+/** Puntos de una novedad en el idioma actual. */
+export const newsItems = (release) => release[current] ?? release.es;
+
 
 export const LANGS = Object.keys(STRINGS);
 export const getLang = () => current;
