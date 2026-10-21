@@ -176,6 +176,7 @@ function refreshTexts() {
   if (cfg.appVersion) $('credits').insertAdjacentHTML('beforeend', ` · <span class="version">${f.escapeHtml(cfg.appVersion)}</span>`);
   els.submitLabel.textContent = state.plan ? t('update') : t('submit');
   if (state.track) showRouteInfo();
+  setExportReady(Boolean(state.plan));
   updateEstimate();
   if (state.plan) renderPlan();
   if (state.best) renderBest();
@@ -375,11 +376,19 @@ async function onRecentClick(ev) {
 }
 
 // --- Exportar ---
+/** La imagen y el GPX necesitan la meteo calculada; mientras tanto, desactivados con una pista. */
 function setExportReady(ready) {
-  $('export-image').disabled = !ready;
-  $('export-gpx').disabled = !ready;
+  for (const id of ['export-image', 'export-gpx']) {
+    $(id).disabled = !ready;
+    $(id).title = ready ? '' : t('exportNeedPlan');
+  }
   $('export-preview').hidden = true;
-  $('export-status').textContent = ready ? t('exportReady') : t('exportNeedPlan');
+}
+
+/** Mensaje bajo la fila de compartir (enlace, imagen o GPX). */
+function shareStatus(text) {
+  $('share-status').textContent = text || '';
+  $('share-status').hidden = !text;
 }
 
 function displayName() {
@@ -400,7 +409,7 @@ function download(blob, name) {
 async function onExportImage() {
   if (!state.plan) return;
   const btn = $('export-image');
-  const status = $('export-status');
+  $('share-link').hidden = true;
   btn.disabled = true;
   btn.classList.add('is-loading');
   try {
@@ -438,7 +447,7 @@ async function onExportImage() {
         await navigator.share({ files: [file], title: displayName() });
         msg = t('exportImageShared');
       } catch (err) {
-        if (err && err.name === 'AbortError') msg = t('exportReady');
+        if (err && err.name === 'AbortError') msg = '';
         else {
           download(blob, name);
           msg = t('exportImageDone');
@@ -448,7 +457,7 @@ async function onExportImage() {
       download(blob, name);
       msg = t('exportImageDone');
     }
-    status.textContent = tilesOk ? msg : `${msg} ${t('exportNoTiles')}`;
+    shareStatus(tilesOk ? msg : `${msg} ${t('exportNoTiles')}`.trim());
   } catch (err) {
     console.error(err);
     showMessage(t('err_generic', { detail: err.message }));
@@ -480,7 +489,8 @@ function onExportGpx() {
     },
   });
   download(new Blob([gpx], { type: 'application/gpx+xml' }), fileName(displayName(), 'gpx'));
-  $('export-status').textContent = t('exportGpxDone');
+  $('share-link').hidden = true;
+  shareStatus(t('exportGpxDone'));
 }
 
 // --- Formulario ---
@@ -865,7 +875,7 @@ async function onShare() {
       sport: els.form.sport.value,
       speedKmh: form.error ? undefined : form.speedKmh,
       stops: form.error ? undefined : form.stops,
-      hideMeters: $('share-hide').checked ? 500 : 0,
+      hideMeters: 500, // nunca se comparte dónde empieza ni dónde acaba
     });
     url = `${location.origin}${location.pathname}#${hash}`;
   } catch (err) {

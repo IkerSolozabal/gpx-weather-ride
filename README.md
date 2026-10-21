@@ -87,23 +87,23 @@ Cada salida se puntúa así (menos es mejor):
 
 Con «Qué evitar sobre todo» el factor elegido (viento, lluvia o temperatura) pesa 3 y los otros dos 0,5; «Un poco de todo» los pesa igual. La noche pesa siempre 1. Así, con «Viento en contra», una salida con 0 % en contra gana a otra con 30 % en contra aunque esta tenga mucho viento a favor el resto del camino. Toda la franja se pide a Open-Meteo en una sola consulta y las salidas se calculan en el navegador; al elegir una hora, su ruta se pinta sin volver a consultar la API. La lógica está en `web/js/lib/beststart.js`.
 
-### Compartir ruta
+## Compartir
 
-El botón **Compartir enlace** está a la vista, justo debajo de «Ver la meteo de la ruta», en cuanto hay una ruta cargada (no dentro de «Más opciones»). Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte, la velocidad y las paradas. No hay servidor ni base de datos:
+Debajo de «Ver la meteo de la ruta», en cuanto hay una ruta cargada, una fila **Compartir: Enlace · Imagen · GPX** reúne las tres formas de compartir (la imagen y el GPX se activan al calcular la meteo). **Enlace** genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte, la velocidad y las paradas. No hay servidor ni base de datos:
 
 - La ruta se simplifica (Douglas-Peucker, unos 5 m de tolerancia en planta y 10 m en altitud, para no perder los puertos), se codifica como polilínea con altitudes y se comprime (deflate + base64url). Una ruta de 70 km ocupa unos 1,7 KB; si el enlace pasa de 7.000 caracteres, se simplifica más.
 - Todo va detrás de `#`, que el navegador no envía a ningún servidor: ni GitHub ni nadie ve la ruta.
-- Por defecto se quitan los primeros y últimos 500 m para no revelar dónde vive quien comparte (salvo en rutas de menos de 2 km).
+- Siempre se quitan los primeros y últimos 500 m para no revelar dónde vive quien comparte (salvo en rutas de menos de 2 km).
 - Quien abre el enlace ve la ruta y el pronóstico actualizado en ese momento. Si la hora de salida ya pasó, se pone la próxima hora.
 
 La lógica está en `web/js/lib/share.js`.
 
-### Exportar
+### Imagen y GPX
 
-Necesita haber calculado la meteo de la ruta.
+En la misma fila de compartir. Necesitan haber calculado la meteo de la ruta; hasta entonces están desactivados.
 
-- **Crear imagen**: un PNG vertical de 1080×1350 (el formato de las historias y de WhatsApp) con cinco zonas: cabecera con las cifras (fecha, distancia, desnivel, salida y llegada, temperatura, viento, lluvia y reparto del viento), el resumen en frases que se ve en la app (hasta tres líneas), mapa con la ruta coloreada y los puntos kilométricos, perfil, y horas de paso con temperatura y viento. En el móvil abre el menú de compartir del sistema; en el ordenador se descarga. Se dibuja en el navegador (`web/js/ui/export-image.js`); el fondo del mapa usa las mismas teselas que la app, que deben permitir CORS (OpenStreetMap lo permite). Si no se pueden cargar, la imagen sale con la ruta sobre fondo liso.
-- **GPX con avisos**: el track y un waypoint en cada punto kilométrico con la hora de paso, la temperatura, el viento, las rachas y la lluvia. Los puntos con lluvia ≥ 50 %, rachas ≥ 45 km/h o viento en contra ≥ 20 km/h llevan «!» y el símbolo de peligro, para verlos en el Garmin o el Wahoo (`web/js/lib/gpx-export.js`).
+- **Imagen**: un PNG vertical de 1080×1350 (el formato de las historias y de WhatsApp) con cinco zonas: cabecera con las cifras (fecha, distancia, desnivel, salida y llegada, temperatura, viento, lluvia y reparto del viento), el resumen en frases que se ve en la app (hasta tres líneas), mapa con la ruta coloreada y los puntos kilométricos, perfil, y horas de paso con temperatura y viento. En el móvil abre el menú de compartir del sistema; en el ordenador se descarga. Se dibuja en el navegador (`web/js/ui/export-image.js`); el fondo del mapa usa las mismas teselas que la app, que deben permitir CORS (OpenStreetMap lo permite). Si no se pueden cargar, la imagen sale con la ruta sobre fondo liso.
+- **GPX** (con avisos): el track y un waypoint en cada punto kilométrico con la hora de paso, la temperatura, el viento, las rachas y la lluvia. Los puntos con lluvia ≥ 50 %, rachas ≥ 45 km/h o viento en contra ≥ 20 km/h llevan «!» y el símbolo de peligro, para verlos en el Garmin o el Wahoo (`web/js/lib/gpx-export.js`).
 
 ## App instalable (PWA)
 
