@@ -89,7 +89,7 @@ Con «Qué evitar sobre todo» el factor elegido (viento, lluvia o temperatura) 
 
 ### Compartir ruta
 
-Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte, la velocidad y las paradas. No hay servidor ni base de datos:
+El botón **Compartir enlace** está a la vista, justo debajo de «Ver la meteo de la ruta», en cuanto hay una ruta cargada (no dentro de «Más opciones»). Genera un enlace del tipo `https://gpx.sogra.es/app/#r=…` que contiene la ruta, el nombre, la hora de salida, el deporte, la velocidad y las paradas. No hay servidor ni base de datos:
 
 - La ruta se simplifica (Douglas-Peucker, unos 5 m de tolerancia), se codifica como polilínea con altitudes y se comprime (deflate + base64url). Una ruta de 70 km ocupa unos 1,7 KB; si el enlace pasa de 7.000 caracteres, se simplifica más.
 - Todo va detrás de `#`, que el navegador no envía a ningún servidor: ni GitHub ni nadie ve la ruta.

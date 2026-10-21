@@ -251,6 +251,7 @@ function showLoadedRoute() {
   $('best-results').hidden = true;
   $('best-run').disabled = false;
   $('share-run').disabled = false;
+  $('share-quick').hidden = false;
   $('share-status').hidden = true;
   $('share-link').hidden = true;
   setExportReady(false);

@@ -123,6 +123,19 @@
         </button>
         <p class="message" id="message" role="alert" hidden></p>
 
+        <div class="share-quick" id="share-quick" hidden>
+          <button type="button" class="secondary" id="share-run" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4M21 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm12 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="shareRun">Compartir enlace</span>
+          </button>
+          <label class="check">
+            <input type="checkbox" id="share-hide" checked>
+            <span data-i18n="shareHide">Ocultar los primeros y últimos 500 m</span>
+          </label>
+          <p class="share-status" id="share-status" aria-live="polite" hidden></p>
+          <input type="text" class="share-link" id="share-link" readonly hidden aria-label="Enlace">
+        </div>
+
         <details class="advanced" id="advanced">
           <summary data-i18n="advanced">Más opciones</summary>
 
@@ -164,20 +177,6 @@
               <span data-i18n="bestRun">Comparar horas</span>
             </button>
             <div class="best" id="best-results" aria-live="polite" hidden></div>
-          </section>
-
-          <section class="adv-block" aria-labelledby="h-share">
-            <h3 class="adv-title" id="h-share" data-i18n="shareTitle">Compartir ruta</h3>
-            <p class="adv-hint" data-i18n="shareHint">Crea un enlace con la ruta, la hora de salida y el ritmo. Quien lo abra verá el pronóstico actualizado.</p>
-            <label class="check">
-              <input type="checkbox" id="share-hide" checked>
-              <span data-i18n="shareHide">Ocultar los primeros y últimos 500 m</span>
-            </label>
-            <button type="button" class="secondary" id="share-run" disabled>
-              <span data-i18n="shareRun">Compartir enlace</span>
-            </button>
-            <p class="share-status" id="share-status" aria-live="polite" hidden></p>
-            <input type="text" class="share-link" id="share-link" readonly hidden aria-label="Enlace">
           </section>
 
           <section class="adv-block" aria-labelledby="h-export">
